@@ -256,6 +256,14 @@ placeholders = ",".join(["%s"] * len(id_list))
 cur.execute(f"SELECT * FROM users WHERE id::text IN ({placeholders})",
             [str(i) for i in id_list])
 ```
+# 2-hop manager resolution pattern (used in WF4, reuse in WF2/WF3)
+# headcount_snapshots.manager_id (TEXT) → users.id (UUID)
+SELECT u.id FROM headcount_snapshots h
+JOIN users u ON u.employee_id = h.manager_id
+WHERE h.employee_id = %s
+LIMIT 1
+# Fallback: _SYSTEM_USER if no match
+```
 
 ---
 
@@ -356,11 +364,11 @@ Track completed pages here. Update after every session.
 
 | Page | File | Status | Notes |
 |---|---|---|---|
-| WF1 — Data Upload | pages/1_WF1_Data_Upload.py | ⬜ Not started | |
-| WF1 — Dashboard | pages/2_WF1_Dashboard.py | ⬜ Not started | |
-| WF4 — Weekly 1:1 | pages/3_WF4_Weekly_1on1.py | ⬜ Not started | |
-| WF4 — Monthly Check-in | pages/4_WF4_Monthly_Checkin.py | ⬜ Not started | |
-| WF4 — Quarterly Review | pages/5_WF4_Quarterly_Review.py | ⬜ Not started | |
+| WF1 — Data Upload | pages/1_WF1_Data_Upload.py | ✅ Complete. | |
+| WF1 — Dashboard | pages/2_WF1_Dashboard.py | ✅ Complete. | |
+| WF4 — Weekly 1:1 | pages/3_WF4_Weekly_1on1.py | ✅ Complete. | |
+| WF4 — Monthly Check-in | pages/4_WF4_Monthly_Checkin.py | ✅ Complete. | |
+| WF4 — Quarterly Review | pages/5_WF4_Quarterly_Review.py | ✅ Complete. | |
 | WF2 — Merit Cycle | pages/6_WF2_Merit_Cycle.py | ⬜ Not started | |
 | WF2 — Eligibility Engine | pages/7_WF2_Eligibility.py | ⬜ Not started | |
 | WF3 — Risk Dashboard | pages/8_WF3_Risk_Dashboard.py | ⬜ Not started | |
@@ -449,6 +457,8 @@ DB_PASSWORD = "your-password"
 | DB connection on Cloud | Used port 5432 | Always port 6543 (pooler) |
 | Secrets not working | Missing double quotes | All values must be `"quoted"` in Streamlit secrets |
 | `.applymap()` deprecation | Old pandas method | Use `.map()` instead |
+| CLAUDE_CODE_MAX_OUTPUT_TOKENS not set → 32k ceiling hit on large pages | set $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "64000" before every session |
+| Multi-tab pages >400 lines: | build in two passes (Tabs 1–2 first, Tabs 3–4 second) as fallback if token limit still triggers |
 
 ---
 

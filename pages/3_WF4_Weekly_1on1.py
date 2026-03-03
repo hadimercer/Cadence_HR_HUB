@@ -1,5 +1,279 @@
 import streamlit as st
+import pandas as pd
+from datetime import date, timedelta
+from utils.db import query_df, run_mutation
 
 st.set_page_config(page_title="WF4 \u2014 Weekly 1:1", layout="wide")
+
+_SYSTEM_USER = "2ad731c3-80c2-4848-a29d-e14361113cfb"
+
+
+def _week_start_label() -> str:
+    """Return current ISO week start (Monday) as a readable string."""
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    return monday.strftime("%d %b %Y")
+
+
+def _safe_str(val) -> str:
+    """Return val as string, empty string on None/NaN."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return ""
+    return str(val)
+
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### Cadence")
+    st.markdown("HR Process Automation Hub")
+    st.divider()
+    st.markdown("**Workflow Navigation**")
+    st.page_link("pages/1_WF1_Data_Upload.py",     label="WF1 \u2014 Data Upload")
+    st.page_link("pages/2_WF1_Dashboard.py",        label="WF1 \u2014 KPI Dashboard")
+    st.page_link("pages/3_WF4_Weekly_1on1.py",      label="WF4 \u2014 Weekly 1:1")
+    st.page_link("pages/4_WF4_Monthly_Checkin.py",  label="WF4 \u2014 Monthly Check-in")
+    st.page_link("pages/5_WF4_Quarterly_Review.py", label="WF4 \u2014 Quarterly Review")
+    st.page_link("pages/6_WF2_Merit_Cycle.py",      label="WF2 \u2014 Merit Cycle")
+    st.page_link("pages/7_WF2_Eligibility.py",      label="WF2 \u2014 Eligibility Engine")
+    st.page_link("pages/8_WF3_Risk_Dashboard.py",   label="WF3 \u2014 Risk Dashboard")
+    st.page_link("pages/9_WF3_Config.py",           label="WF3 \u2014 Config")
+
+# ── Header ────────────────────────────────────────────────────────────────────
 st.title("WF4 \u2014 Weekly 1:1")
-st.info("This page is under construction.")
+st.caption(
+    "Log manager 1:1 outcomes \u00b7 Track completion \u00b7 Surface missed conversations"
+)
+st.divider()
+
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab_log, tab_history = st.tabs(["Log 1:1", "History & Alerts"])
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TAB 1 — Log 1:1
+# ═════════════════════════════════════════════════════════════════════════════
+with tab_log:
+    st.subheader("Log a 1:1")
+    st.caption(f"Current week starts: **{_week_start_label()}**")
+
+    # Load active employees from latest headcount period
+    employees_df = query_df(
+        "SELECT employee_id, first_name || ' ' || last_name AS full_name "
+        "FROM headcount_snapshots "
+        "WHERE reporting_period = (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "AND status = 'ACTIVE' "
+        "ORDER BY last_name, first_name"
+    )
+
+    if employees_df.empty:
+        st.info(
+            "\u2139\ufe0f No active employees found. "
+            "Upload a headcount CSV via WF1 \u2014 Data Upload first."
+        )
+    else:
+        # ── Employee selector ─────────────────────────────────────────────────
+        emp_labels = ["— Select employee —"] + employees_df["full_name"].tolist()
+        emp_id_map = dict(
+            zip(employees_df["full_name"], employees_df["employee_id"])
+        )
+
+        selected_name = st.selectbox("Employee", options=emp_labels)
+
+        if selected_name == "— Select employee —":
+            st.info("Select an employee above to log a 1:1.")
+        else:
+            selected_emp_id = emp_id_map[selected_name]
+
+            # ── Fetch existing record for current week ────────────────────────
+            existing_df = query_df(
+                "SELECT id, employee_topic, agreed_actions, blockers_raised, "
+                "sentiment_flag, status, manager_submitted_at "
+                "FROM one_on_ones "
+                "WHERE employee_id = %s "
+                "AND week_start_date = date_trunc('week', CURRENT_DATE)::date",
+                (selected_emp_id,),
+            )
+
+            # ── Show employee topic if submitted ──────────────────────────────
+            if not existing_df.empty:
+                topic = _safe_str(existing_df["employee_topic"].iloc[0])
+                if topic:
+                    st.info(f"\U0001f4ac **Employee topic for this week:** {topic}")
+                else:
+                    st.caption("No topic submitted by employee for this week.")
+
+                current_status = _safe_str(existing_df["status"].iloc[0])
+                if current_status == "COMPLETED":
+                    st.success(
+                        "\u2713 This 1:1 is already logged as COMPLETED. "
+                        "You can update it below."
+                    )
+            else:
+                st.caption("No record exists for this employee this week.")
+
+            # ── Pre-fill form values if an existing record is present ─────────
+            prefill_actions  = ""
+            prefill_blockers = ""
+            prefill_sent_idx = 1  # Default: NEUTRAL
+
+            if not existing_df.empty:
+                prefill_actions  = _safe_str(existing_df["agreed_actions"].iloc[0])
+                prefill_blockers = _safe_str(existing_df["blockers_raised"].iloc[0])
+                raw_s = _safe_str(existing_df["sentiment_flag"].iloc[0])
+                prefill_sent_idx = {"POSITIVE": 0, "NEUTRAL": 1, "CONCERNING": 2}.get(
+                    raw_s, 1
+                )
+
+            # ── Form ──────────────────────────────────────────────────────────
+            with st.form("log_1on1_form", clear_on_submit=False):
+                agreed_actions = st.text_area(
+                    "Agreed Actions",
+                    value=prefill_actions,
+                    help="Key outcomes and next steps agreed during this 1:1.",
+                    height=120,
+                )
+                blockers_raised = st.text_area(
+                    "Blockers Raised (optional)",
+                    value=prefill_blockers,
+                    help="Any blockers or concerns raised by the employee.",
+                    height=100,
+                )
+                sentiment_flag = st.selectbox(
+                    "Overall Sentiment",
+                    options=["POSITIVE", "NEUTRAL", "CONCERNING"],
+                    index=prefill_sent_idx,
+                    help="Manager's assessment of employee engagement in this conversation.",
+                )
+                submit_btn = st.form_submit_button("Submit 1:1", type="primary")
+
+            if submit_btn:
+                blockers_val = (
+                    blockers_raised.strip() if blockers_raised.strip() else None
+                )
+
+                try:
+                    if existing_df.empty:
+                        run_mutation(
+                            "INSERT INTO one_on_ones "
+                            "(id, employee_id, manager_id, week_start_date, status, "
+                            "agreed_actions, blockers_raised, sentiment_flag, "
+                            "manager_submitted_at) "
+                            "VALUES (gen_random_uuid(), %s, %s::uuid, "
+                            "date_trunc('week', CURRENT_DATE)::date, "
+                            "'COMPLETED', %s, %s, %s, NOW())",
+                            (
+                                selected_emp_id,
+                                _SYSTEM_USER,
+                                agreed_actions,
+                                blockers_val,
+                                sentiment_flag,
+                            ),
+                        )
+                    else:
+                        record_id = str(existing_df["id"].iloc[0])
+                        run_mutation(
+                            "UPDATE one_on_ones "
+                            "SET status = 'COMPLETED', agreed_actions = %s, "
+                            "blockers_raised = %s, sentiment_flag = %s, "
+                            "manager_submitted_at = NOW() "
+                            "WHERE id = %s::uuid",
+                            (agreed_actions, blockers_val, sentiment_flag, record_id),
+                        )
+
+                    query_df.clear()
+                    st.success(
+                        f"\u2713 1:1 logged for **{selected_name}** "
+                        f"\u00b7 Week of {_week_start_label()} "
+                        f"\u00b7 Status: COMPLETED"
+                    )
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Database error: {str(e)}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TAB 2 — History & Alerts
+# ═════════════════════════════════════════════════════════════════════════════
+with tab_history:
+    st.subheader("Completion Alerts")
+
+    # ── Alert: employees with no COMPLETED 1:1 in the last 14 calendar days ──
+    overdue_df = query_df(
+        "SELECT hs.first_name || ' ' || hs.last_name AS employee_name "
+        "FROM headcount_snapshots hs "
+        "WHERE hs.reporting_period = "
+        "  (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "AND hs.status = 'ACTIVE' "
+        "AND hs.employee_id NOT IN ( "
+        "  SELECT DISTINCT o.employee_id "
+        "  FROM one_on_ones o "
+        "  WHERE o.status = 'COMPLETED' "
+        "  AND o.week_start_date >= CURRENT_DATE - INTERVAL '14 days' "
+        ") "
+        "ORDER BY employee_name"
+    )
+
+    if not overdue_df.empty:
+        names_list = ", ".join(overdue_df["employee_name"].tolist())
+        st.warning(
+            f"\u26a0\ufe0f **{len(overdue_df)} employee(s) have no completed 1:1 "
+            f"in the last 14 days:** {names_list}"
+        )
+    else:
+        st.success(
+            "\u2713 All active employees have a completed 1:1 within the last 14 days."
+        )
+
+    st.divider()
+    st.subheader("Last 8 Weeks — 1:1 Records")
+
+    # ── History table: last 56 days ───────────────────────────────────────────
+    history_df = query_df(
+        "SELECT "
+        "  hs.first_name || ' ' || hs.last_name AS employee_name, "
+        "  o.week_start_date AS week_start, "
+        "  o.status, "
+        # EMPLOYEE ROLE: sentiment_flag excluded at query layer — WF4-FR-004
+        "  o.sentiment_flag, "
+        "  o.manager_submitted_at AS submitted "
+        "FROM one_on_ones o "
+        "JOIN headcount_snapshots hs "
+        "  ON hs.employee_id = o.employee_id "
+        "  AND hs.reporting_period = "
+        "    (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "WHERE o.week_start_date >= CURRENT_DATE - INTERVAL '56 days' "
+        "ORDER BY o.week_start_date DESC, hs.last_name, hs.first_name"
+    )
+
+    if history_df.empty:
+        st.info("\u2139\ufe0f No 1:1 records found in the last 8 weeks.")
+    else:
+        # Format date columns before renaming
+        history_df["week_start"] = pd.to_datetime(
+            history_df["week_start"]
+        ).dt.strftime("%d %b %Y")
+        history_df["submitted"] = pd.to_datetime(
+            history_df["submitted"], errors="coerce"
+        ).dt.strftime("%d %b %Y %H:%M")
+
+        # Rename for display
+        history_df = history_df.rename(
+            columns={
+                "employee_name": "Employee",
+                "week_start":    "Week",
+                "status":        "Status",
+                "sentiment_flag": "Sentiment",
+                "submitted":     "Submitted",
+            }
+        )
+
+        # Style MISSED rows with red background + white text
+        def _style_missed(row):
+            if row["Status"] == "MISSED":
+                return [
+                    "background-color: #E05252; color: #FFFFFF; font-weight: 600;"
+                ] * len(row)
+            return [""] * len(row)
+
+        styled = history_df.style.apply(_style_missed, axis=1)
+        st.dataframe(styled, use_container_width=True, hide_index=True)
