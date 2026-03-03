@@ -183,32 +183,42 @@ def _run_eligibility_engine(cycle_id: str):
 
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="WF2 \u2014 Eligibility Engine", layout="wide")
+def page_header(title, subtitle=""):
+    sub = f'<p style="color:rgba(255,255,255,0.82); font-size:0.95rem; margin:0;">{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+                border-radius:0.6rem;padding:1rem 1.4rem 0.9rem;margin-bottom:1.2rem;">
+      <h1 style="color:#FFFFFF;font-size:1.8rem;font-weight:700;
+                 margin:0 0 0.2rem 0;line-height:1.2;">{title}</h1>
+      {sub}
+    </div>""", unsafe_allow_html=True)
+
+
+st.set_page_config(page_title="Eligibility & Recommendations \u2014 Cadence", layout="wide")
 
 # ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### Cadence")
     st.markdown("HR Process Automation Hub")
     st.divider()
-    st.markdown("**Workflow Navigation**")
-    st.page_link("pages/1_WF1_Data_Upload.py",     label="WF1 \u2014 Data Upload")
-    st.page_link("pages/2_WF1_Dashboard.py",        label="WF1 \u2014 KPI Dashboard")
-    st.page_link("pages/3_WF4_Weekly_1on1.py",      label="WF4 \u2014 Weekly 1:1")
-    st.page_link("pages/4_WF4_Monthly_Checkin.py",  label="WF4 \u2014 Monthly Check-in")
-    st.page_link("pages/5_WF4_Quarterly_Review.py", label="WF4 \u2014 Quarterly Review")
-    st.page_link("pages/6_WF2_Merit_Cycle.py",      label="WF2 \u2014 Merit Cycle")
-    st.page_link("pages/7_WF2_Eligibility.py",      label="WF2 \u2014 Eligibility Engine")
-    st.page_link("pages/8_WF3_Risk_Dashboard.py",   label="WF3 \u2014 Risk Dashboard")
-    st.page_link("pages/9_WF3_Config.py",           label="WF3 \u2014 Config")
+    st.markdown("**Workforce Intelligence**")
+    st.page_link("pages/1_WF1_Data_Upload.py",      label="Data Upload & Pipeline")
+    st.page_link("pages/2_WF1_Dashboard.py",         label="KPI Dashboard")
+    st.divider()
+    st.markdown("**Performance Management**")
+    st.page_link("pages/3_WF4_Weekly_1on1.py",       label="Weekly 1:1s")
+    st.page_link("pages/4_WF4_Monthly_Checkin.py",   label="Monthly Check-ins")
+    st.page_link("pages/5_WF4_Quarterly_Review.py",  label="Quarterly Reviews")
+    st.divider()
+    st.markdown("**Compensation Review**")
+    st.page_link("pages/6_WF2_Merit_Cycle.py",       label="Merit Cycle")
+    st.page_link("pages/7_WF2_Eligibility.py",       label="Eligibility & Recommendations")
+    st.divider()
+    st.markdown("**Attrition Risk**")
+    st.page_link("pages/8_WF3_Risk_Dashboard.py",    label="Risk Dashboard")
+    st.page_link("pages/9_WF3_Config.py",            label="Scoring Config")
 
-# ─── PAGE HEADER ─────────────────────────────────────────────────────────────
-st.title("WF2 \u2014 Eligibility Engine")
-st.caption(
-    "Six-gate eligibility evaluation \u00b7 "
-    "HR overrides \u00b7 "
-    "Manager merit recommendations"
-)
-st.divider()
+page_header("Eligibility & Recommendations", "Six-gate eligibility engine. Manager recommendation forms for eligible employees.")
 
 # ─── TAB CSS (CLAUDE.md Section 14) ──────────────────────────────────────────
 st.markdown("""
@@ -578,10 +588,9 @@ with tab3:
             pr.rating_overall,
             mr.id                             AS rec_id,
             mr.status                         AS rec_status,
-            mr.recommended_base_increase_pct,
-            mr.recommended_bonus_flat,
-            mr.justification                  AS rec_justification,
-            mr.return_note
+            mr.base_increase_pct,
+            mr.bonus_amount,
+            mr.justification_note             AS rec_justification
         FROM merit_eligibility me
         JOIN headcount_snapshots h
           ON h.employee_id = me.employee_id
@@ -651,7 +660,7 @@ with tab3:
             rec_has_rec = not (
                 rec_id is None or (isinstance(rec_id, float) and pd.isna(rec_id))
             )
-            show_form = (not rec_has_rec) or (rec_stat == "RETURNED")
+            show_form = (not rec_has_rec) or (rec_stat == "REJECTED")
 
             rating_color = (
                 GREEN  if rating == "EXCEEDS"
@@ -663,7 +672,7 @@ with tab3:
             rec_status_colors = {
                 "SUBMITTED":     ACCENT,
                 "HR_APPROVED":   GREEN,
-                "RETURNED":      AMBER,
+                "REJECTED":      AMBER,
                 "CHRO_APPROVED": GOLD,
                 "PENDING":       MUTED,
             }
@@ -699,21 +708,16 @@ with tab3:
 
                 st.markdown("")
 
-                # RETURNED: show HR return note above the re-submission form
-                if rec_stat == "RETURNED":
-                    return_note = _safe_str(row["return_note"]) or "No return note provided."
-                    st.warning(f"**Returned by HR:** {return_note}")
-
-                # READ-ONLY VIEW — recommendation exists and is not RETURNED
-                if rec_has_rec and rec_stat != "RETURNED":
+                # READ-ONLY VIEW — recommendation exists and is not REJECTED
+                if rec_has_rec and rec_stat != "REJECTED":
                     ro1, ro2 = st.columns(2)
                     ro1.metric(
                         "Base Increase",
-                        f"{_safe_float(row['recommended_base_increase_pct']):.1f}%",
+                        f"{_safe_float(row['base_increase_pct']):.1f}%",
                     )
                     ro2.metric(
                         "Flat Bonus",
-                        _fmt_currency(row["recommended_bonus_flat"]),
+                        _fmt_currency(row["bonus_amount"]),
                     )
                     just_val = _safe_str(row["rec_justification"])
                     if just_val:
@@ -721,8 +725,8 @@ with tab3:
 
                 # EDITABLE FORM — no recommendation yet, or RETURNED
                 if show_form:
-                    prefill_base  = _safe_float(row["recommended_base_increase_pct"]) if rec_has_rec else 0.0
-                    prefill_bonus = _safe_float(row["recommended_bonus_flat"])        if rec_has_rec else 0.0
+                    prefill_base  = _safe_float(row["base_increase_pct"]) if rec_has_rec else 0.0
+                    prefill_bonus = _safe_float(row["bonus_amount"])        if rec_has_rec else 0.0
                     prefill_just  = _safe_str(row["rec_justification"])               if rec_has_rec else ""
 
                     base_pct = st.number_input(
@@ -763,13 +767,13 @@ with tab3:
                         else:
                             try:
                                 if rec_has_rec:
-                                    # RETURNED status — UPDATE existing record
+                                    # REJECTED status — UPDATE existing record
                                     run_mutation(
                                         """
                                         UPDATE merit_recommendations
-                                           SET recommended_base_increase_pct = %s,
-                                               recommended_bonus_flat        = %s,
-                                               justification                 = %s,
+                                           SET base_increase_pct = %s,
+                                               bonus_amount        = %s,
+                                               justification_note  = %s,
                                                status                        = 'SUBMITTED',
                                                submitted_at                  = NOW()
                                          WHERE id::text = %s
@@ -787,9 +791,9 @@ with tab3:
                                         """
                                         INSERT INTO merit_recommendations
                                             (cycle_id, employee_id, manager_id,
-                                             recommended_base_increase_pct,
-                                             recommended_bonus_flat,
-                                             justification, status, submitted_at)
+                                             base_increase_pct,
+                                             bonus_amount,
+                                             justification_note, status, submitted_at)
                                         VALUES
                                             (%s::uuid, %s, %s::uuid,
                                              %s, %s, %s,

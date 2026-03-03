@@ -3,7 +3,18 @@ import pandas as pd
 from datetime import date, timedelta
 from utils.db import query_df, run_mutation
 
-st.set_page_config(page_title="WF4 \u2014 Weekly 1:1", layout="wide")
+def page_header(title, subtitle=""):
+    sub = f'<p style="color:rgba(255,255,255,0.82); font-size:0.95rem; margin:0;">{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+                border-radius:0.6rem;padding:1rem 1.4rem 0.9rem;margin-bottom:1.2rem;">
+      <h1 style="color:#FFFFFF;font-size:1.8rem;font-weight:700;
+                 margin:0 0 0.2rem 0;line-height:1.2;">{title}</h1>
+      {sub}
+    </div>""", unsafe_allow_html=True)
+
+
+st.set_page_config(page_title="Weekly 1:1s \u2014 Cadence", layout="wide")
 
 _SYSTEM_USER = "2ad731c3-80c2-4848-a29d-e14361113cfb"
 
@@ -27,23 +38,24 @@ with st.sidebar:
     st.markdown("### Cadence")
     st.markdown("HR Process Automation Hub")
     st.divider()
-    st.markdown("**Workflow Navigation**")
-    st.page_link("pages/1_WF1_Data_Upload.py",     label="WF1 \u2014 Data Upload")
-    st.page_link("pages/2_WF1_Dashboard.py",        label="WF1 \u2014 KPI Dashboard")
-    st.page_link("pages/3_WF4_Weekly_1on1.py",      label="WF4 \u2014 Weekly 1:1")
-    st.page_link("pages/4_WF4_Monthly_Checkin.py",  label="WF4 \u2014 Monthly Check-in")
-    st.page_link("pages/5_WF4_Quarterly_Review.py", label="WF4 \u2014 Quarterly Review")
-    st.page_link("pages/6_WF2_Merit_Cycle.py",      label="WF2 \u2014 Merit Cycle")
-    st.page_link("pages/7_WF2_Eligibility.py",      label="WF2 \u2014 Eligibility Engine")
-    st.page_link("pages/8_WF3_Risk_Dashboard.py",   label="WF3 \u2014 Risk Dashboard")
-    st.page_link("pages/9_WF3_Config.py",           label="WF3 \u2014 Config")
+    st.markdown("**Workforce Intelligence**")
+    st.page_link("pages/1_WF1_Data_Upload.py",      label="Data Upload & Pipeline")
+    st.page_link("pages/2_WF1_Dashboard.py",         label="KPI Dashboard")
+    st.divider()
+    st.markdown("**Performance Management**")
+    st.page_link("pages/3_WF4_Weekly_1on1.py",       label="Weekly 1:1s")
+    st.page_link("pages/4_WF4_Monthly_Checkin.py",   label="Monthly Check-ins")
+    st.page_link("pages/5_WF4_Quarterly_Review.py",  label="Quarterly Reviews")
+    st.divider()
+    st.markdown("**Compensation Review**")
+    st.page_link("pages/6_WF2_Merit_Cycle.py",       label="Merit Cycle")
+    st.page_link("pages/7_WF2_Eligibility.py",       label="Eligibility & Recommendations")
+    st.divider()
+    st.markdown("**Attrition Risk**")
+    st.page_link("pages/8_WF3_Risk_Dashboard.py",    label="Risk Dashboard")
+    st.page_link("pages/9_WF3_Config.py",            label="Scoring Config")
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.title("WF4 \u2014 Weekly 1:1")
-st.caption(
-    "Log manager 1:1 outcomes \u00b7 Track completion \u00b7 Surface missed conversations"
-)
-st.divider()
+page_header("Weekly 1:1s", "Structured capture of weekly check-ins. Missed meeting alerts at 14 days.")
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 tab_log, tab_history = st.tabs(["Log 1:1", "History & Alerts"])
@@ -85,7 +97,7 @@ with tab_log:
 
             # ── Fetch existing record for current week ────────────────────────
             existing_df = query_df(
-                "SELECT id, employee_topic, agreed_actions, blockers_raised, "
+                "SELECT id, employee_topics, agreed_actions, blockers_raised, "
                 "sentiment_flag, status, manager_submitted_at "
                 "FROM one_on_ones "
                 "WHERE employee_id = %s "
@@ -95,7 +107,7 @@ with tab_log:
 
             # ── Show employee topic if submitted ──────────────────────────────
             if not existing_df.empty:
-                topic = _safe_str(existing_df["employee_topic"].iloc[0])
+                topic = _safe_str(existing_df["employee_topics"].iloc[0])
                 if topic:
                     st.info(f"\U0001f4ac **Employee topic for this week:** {topic}")
                 else:

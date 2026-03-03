@@ -37,12 +37,12 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 _FACTOR_COL: dict[str, str] = {
     "COMPA_RATIO":       "score_compa_ratio",
-    "RATING_TRAJECTORY": "score_rating_trajectory",
+    "RATING_TRAJECTORY": "score_rating_trend",
     "TIME_SINCE_MERIT":  "score_time_since_merit",
     "TIME_IN_ROLE":      "score_time_in_role",
-    "SENTIMENT_TREND":   "score_sentiment_trend",
-    "CHECKIN_FREQUENCY": "score_checkin_frequency",
-    "FLIGHT_RISK_ROLE":  "score_flight_risk_role",
+    "SENTIMENT_TREND":   "score_sentiment",
+    "CHECKIN_FREQUENCY": "score_checkin_freq",
+    "FLIGHT_RISK_ROLE":  "score_role_risk",
 }
 
 
@@ -420,18 +420,18 @@ def run_scoring_engine() -> dict:
                 rag = _assign_rag(composite)
 
                 score_records.append({
-                    "employee_id":             emp_id,
-                    "calculation_date":        str(today),
-                    "composite_score":         composite,
-                    "rag_status":              rag,
-                    "score_compa_ratio":       sub_scores.get("COMPA_RATIO",       0.0),
-                    "score_rating_trajectory": sub_scores.get("RATING_TRAJECTORY", 0.0),
-                    "score_time_since_merit":  sub_scores.get("TIME_SINCE_MERIT",  0.0),
-                    "score_time_in_role":      sub_scores.get("TIME_IN_ROLE",       0.0),
-                    "score_sentiment_trend":   sub_scores.get("SENTIMENT_TREND",   0.0),
-                    "score_checkin_frequency": sub_scores.get("CHECKIN_FREQUENCY", 0.0),
-                    "score_flight_risk_role":  sub_scores.get("FLIGHT_RISK_ROLE",  0.0),
-                    "config_snapshot":         config_snapshot,
+                    "employee_id":            emp_id,
+                    "calculation_date":       str(today),
+                    "composite_score":        composite,
+                    "rag_status":             rag,
+                    "score_compa_ratio":      sub_scores.get("COMPA_RATIO",       0.0),
+                    "score_rating_trend":     sub_scores.get("RATING_TRAJECTORY", 0.0),
+                    "score_time_since_merit": sub_scores.get("TIME_SINCE_MERIT",  0.0),
+                    "score_time_in_role":     sub_scores.get("TIME_IN_ROLE",       0.0),
+                    "score_sentiment":        sub_scores.get("SENTIMENT_TREND",   0.0),
+                    "score_checkin_freq":     sub_scores.get("CHECKIN_FREQUENCY", 0.0),
+                    "score_role_risk":        sub_scores.get("FLIGHT_RISK_ROLE",  0.0),
+                    "config_snapshot":        config_snapshot,
                 })
                 scored += 1
 
@@ -444,22 +444,22 @@ def run_scoring_engine() -> dict:
             upsert_sql = """
                 INSERT INTO attrition_risk_scores (
                     employee_id, calculation_date, composite_score, rag_status,
-                    score_compa_ratio, score_rating_trajectory, score_time_since_merit,
-                    score_time_in_role, score_sentiment_trend, score_checkin_frequency,
-                    score_flight_risk_role, config_snapshot
+                    score_compa_ratio, score_rating_trend, score_time_since_merit,
+                    score_time_in_role, score_sentiment, score_checkin_freq,
+                    score_role_risk, config_snapshot
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (employee_id, calculation_date) DO UPDATE SET
-                    composite_score         = EXCLUDED.composite_score,
-                    rag_status              = EXCLUDED.rag_status,
-                    score_compa_ratio       = EXCLUDED.score_compa_ratio,
-                    score_rating_trajectory = EXCLUDED.score_rating_trajectory,
-                    score_time_since_merit  = EXCLUDED.score_time_since_merit,
-                    score_time_in_role      = EXCLUDED.score_time_in_role,
-                    score_sentiment_trend   = EXCLUDED.score_sentiment_trend,
-                    score_checkin_frequency = EXCLUDED.score_checkin_frequency,
-                    score_flight_risk_role  = EXCLUDED.score_flight_risk_role,
-                    config_snapshot         = EXCLUDED.config_snapshot
+                    composite_score       = EXCLUDED.composite_score,
+                    rag_status            = EXCLUDED.rag_status,
+                    score_compa_ratio     = EXCLUDED.score_compa_ratio,
+                    score_rating_trend    = EXCLUDED.score_rating_trend,
+                    score_time_since_merit = EXCLUDED.score_time_since_merit,
+                    score_time_in_role    = EXCLUDED.score_time_in_role,
+                    score_sentiment       = EXCLUDED.score_sentiment,
+                    score_checkin_freq    = EXCLUDED.score_checkin_freq,
+                    score_role_risk       = EXCLUDED.score_role_risk,
+                    config_snapshot       = EXCLUDED.config_snapshot
             """
             with conn.cursor() as cur:
                 for rec in score_records:
@@ -469,12 +469,12 @@ def run_scoring_engine() -> dict:
                         rec["composite_score"],
                         rec["rag_status"],
                         rec["score_compa_ratio"],
-                        rec["score_rating_trajectory"],
+                        rec["score_rating_trend"],
                         rec["score_time_since_merit"],
                         rec["score_time_in_role"],
-                        rec["score_sentiment_trend"],
-                        rec["score_checkin_frequency"],
-                        rec["score_flight_risk_role"],
+                        rec["score_sentiment"],
+                        rec["score_checkin_freq"],
+                        rec["score_role_risk"],
                         rec["config_snapshot"],
                     ))
             conn.commit()  # Single commit for the entire batch
@@ -506,9 +506,9 @@ def get_latest_scores() -> pd.DataFrame:
     -------
     employee_id, full_name, department, job_title, manager_id,
     composite_score, rag_status,
-    score_compa_ratio, score_rating_trajectory, score_time_since_merit,
-    score_time_in_role, score_sentiment_trend, score_checkin_frequency,
-    score_flight_risk_role, calculation_date
+    score_compa_ratio, score_rating_trend, score_time_since_merit,
+    score_time_in_role, score_sentiment, score_checkin_freq,
+    score_role_risk, calculation_date
     """
     sql = """
         SELECT
@@ -520,12 +520,12 @@ def get_latest_scores() -> pd.DataFrame:
             s.composite_score,
             s.rag_status,
             s.score_compa_ratio,
-            s.score_rating_trajectory,
+            s.score_rating_trend,
             s.score_time_since_merit,
             s.score_time_in_role,
-            s.score_sentiment_trend,
-            s.score_checkin_frequency,
-            s.score_flight_risk_role,
+            s.score_sentiment,
+            s.score_checkin_freq,
+            s.score_role_risk,
             s.calculation_date
         FROM (
             SELECT DISTINCT ON (employee_id)
@@ -534,12 +534,12 @@ def get_latest_scores() -> pd.DataFrame:
                 composite_score,
                 rag_status,
                 score_compa_ratio,
-                score_rating_trajectory,
+                score_rating_trend,
                 score_time_since_merit,
                 score_time_in_role,
-                score_sentiment_trend,
-                score_checkin_frequency,
-                score_flight_risk_role
+                score_sentiment,
+                score_checkin_freq,
+                score_role_risk
             FROM attrition_risk_scores
             ORDER BY employee_id, calculation_date DESC
         ) s
@@ -570,9 +570,9 @@ def get_score_history(employee_id: str, days: int = 30) -> pd.DataFrame:
     Columns
     -------
     calculation_date, composite_score, rag_status,
-    score_compa_ratio, score_rating_trajectory, score_time_since_merit,
-    score_time_in_role, score_sentiment_trend, score_checkin_frequency,
-    score_flight_risk_role
+    score_compa_ratio, score_rating_trend, score_time_since_merit,
+    score_time_in_role, score_sentiment, score_checkin_freq,
+    score_role_risk
     """
     cutoff = date.today() - timedelta(days=days)
     sql = """
@@ -581,12 +581,12 @@ def get_score_history(employee_id: str, days: int = 30) -> pd.DataFrame:
             composite_score,
             rag_status,
             score_compa_ratio,
-            score_rating_trajectory,
+            score_rating_trend,
             score_time_since_merit,
             score_time_in_role,
-            score_sentiment_trend,
-            score_checkin_frequency,
-            score_flight_risk_role
+            score_sentiment,
+            score_checkin_freq,
+            score_role_risk
         FROM attrition_risk_scores
         WHERE employee_id = %s
           AND calculation_date >= %s

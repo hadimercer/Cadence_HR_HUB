@@ -5,7 +5,18 @@ import pandas as pd
 import plotly.express as px
 from utils.db import query_df, run_mutation
 
-st.set_page_config(page_title="WF4 \u2014 Quarterly Review", layout="wide")
+def page_header(title, subtitle=""):
+    sub = f'<p style="color:rgba(255,255,255,0.82); font-size:0.95rem; margin:0;">{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+                border-radius:0.6rem;padding:1rem 1.4rem 0.9rem;margin-bottom:1.2rem;">
+      <h1 style="color:#FFFFFF;font-size:1.8rem;font-weight:700;
+                 margin:0 0 0.2rem 0;line-height:1.2;">{title}</h1>
+      {sub}
+    </div>""", unsafe_allow_html=True)
+
+
+st.set_page_config(page_title="Quarterly Reviews \u2014 Cadence", layout="wide")
 
 # ── Constants — CADENCE.md Section 5 ─────────────────────────────────────────
 _SYSTEM_USER = "2ad731c3-80c2-4848-a29d-e14361113cfb"
@@ -119,23 +130,24 @@ with st.sidebar:
     st.markdown("### Cadence")
     st.markdown("HR Process Automation Hub")
     st.divider()
-    st.markdown("**Workflow Navigation**")
-    st.page_link("pages/1_WF1_Data_Upload.py",     label="WF1 \u2014 Data Upload")
-    st.page_link("pages/2_WF1_Dashboard.py",        label="WF1 \u2014 KPI Dashboard")
-    st.page_link("pages/3_WF4_Weekly_1on1.py",      label="WF4 \u2014 Weekly 1:1")
-    st.page_link("pages/4_WF4_Monthly_Checkin.py",  label="WF4 \u2014 Monthly Check-in")
-    st.page_link("pages/5_WF4_Quarterly_Review.py", label="WF4 \u2014 Quarterly Review")
-    st.page_link("pages/6_WF2_Merit_Cycle.py",      label="WF2 \u2014 Merit Cycle")
-    st.page_link("pages/7_WF2_Eligibility.py",      label="WF2 \u2014 Eligibility Engine")
-    st.page_link("pages/8_WF3_Risk_Dashboard.py",   label="WF3 \u2014 Risk Dashboard")
-    st.page_link("pages/9_WF3_Config.py",           label="WF3 \u2014 Config")
+    st.markdown("**Workforce Intelligence**")
+    st.page_link("pages/1_WF1_Data_Upload.py",      label="Data Upload & Pipeline")
+    st.page_link("pages/2_WF1_Dashboard.py",         label="KPI Dashboard")
+    st.divider()
+    st.markdown("**Performance Management**")
+    st.page_link("pages/3_WF4_Weekly_1on1.py",       label="Weekly 1:1s")
+    st.page_link("pages/4_WF4_Monthly_Checkin.py",   label="Monthly Check-ins")
+    st.page_link("pages/5_WF4_Quarterly_Review.py",  label="Quarterly Reviews")
+    st.divider()
+    st.markdown("**Compensation Review**")
+    st.page_link("pages/6_WF2_Merit_Cycle.py",       label="Merit Cycle")
+    st.page_link("pages/7_WF2_Eligibility.py",       label="Eligibility & Recommendations")
+    st.divider()
+    st.markdown("**Attrition Risk**")
+    st.page_link("pages/8_WF3_Risk_Dashboard.py",    label="Risk Dashboard")
+    st.page_link("pages/9_WF3_Config.py",            label="Scoring Config")
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.title("WF4 \u2014 Quarterly Review")
-st.caption(
-    "Self-assessment \u00b7 Manager rating \u00b7 HR approval \u00b7 Performance record"
-)
-st.divider()
+page_header("Quarterly Reviews", "Self-assessment to HR approval. Ratings produced here drive merit eligibility.")
 
 CQ = current_quarter()
 Q_START, Q_END = quarter_date_range(CQ)

@@ -2,7 +2,18 @@ import streamlit as st
 import pandas as pd
 from utils.db import query_df, run_mutation
 
-st.set_page_config(page_title="WF3 \u2014 Config", layout="wide")
+def page_header(title, subtitle=""):
+    sub = f'<p style="color:rgba(255,255,255,0.82); font-size:0.95rem; margin:0;">{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+                border-radius:0.6rem;padding:1rem 1.4rem 0.9rem;margin-bottom:1.2rem;">
+      <h1 style="color:#FFFFFF;font-size:1.8rem;font-weight:700;
+                 margin:0 0 0.2rem 0;line-height:1.2;">{title}</h1>
+      {sub}
+    </div>""", unsafe_allow_html=True)
+
+
+st.set_page_config(page_title="Scoring Config \u2014 Cadence", layout="wide")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 _SYSTEM_USER = "2ad731c3-80c2-4848-a29d-e14361113cfb"
@@ -71,24 +82,24 @@ with st.sidebar:
     st.markdown("### Cadence")
     st.markdown("HR Process Automation Hub")
     st.divider()
-    st.markdown("**Workflow Navigation**")
-    st.page_link("pages/1_WF1_Data_Upload.py",     label="WF1 \u2014 Data Upload")
-    st.page_link("pages/2_WF1_Dashboard.py",        label="WF1 \u2014 KPI Dashboard")
-    st.page_link("pages/3_WF4_Weekly_1on1.py",      label="WF4 \u2014 Weekly 1:1")
-    st.page_link("pages/4_WF4_Monthly_Checkin.py",  label="WF4 \u2014 Monthly Check-in")
-    st.page_link("pages/5_WF4_Quarterly_Review.py", label="WF4 \u2014 Quarterly Review")
-    st.page_link("pages/6_WF2_Merit_Cycle.py",      label="WF2 \u2014 Merit Cycle")
-    st.page_link("pages/7_WF2_Eligibility.py",      label="WF2 \u2014 Eligibility Engine")
-    st.page_link("pages/8_WF3_Risk_Dashboard.py",   label="WF3 \u2014 Risk Dashboard")
-    st.page_link("pages/9_WF3_Config.py",           label="WF3 \u2014 Config")
+    st.markdown("**Workforce Intelligence**")
+    st.page_link("pages/1_WF1_Data_Upload.py",      label="Data Upload & Pipeline")
+    st.page_link("pages/2_WF1_Dashboard.py",         label="KPI Dashboard")
+    st.divider()
+    st.markdown("**Performance Management**")
+    st.page_link("pages/3_WF4_Weekly_1on1.py",       label="Weekly 1:1s")
+    st.page_link("pages/4_WF4_Monthly_Checkin.py",   label="Monthly Check-ins")
+    st.page_link("pages/5_WF4_Quarterly_Review.py",  label="Quarterly Reviews")
+    st.divider()
+    st.markdown("**Compensation Review**")
+    st.page_link("pages/6_WF2_Merit_Cycle.py",       label="Merit Cycle")
+    st.page_link("pages/7_WF2_Eligibility.py",       label="Eligibility & Recommendations")
+    st.divider()
+    st.markdown("**Attrition Risk**")
+    st.page_link("pages/8_WF3_Risk_Dashboard.py",    label="Risk Dashboard")
+    st.page_link("pages/9_WF3_Config.py",            label="Scoring Config")
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.title("WF3 \u2014 Scoring Engine Configuration")
-st.caption(
-    "Adjust risk factor weights and thresholds \u00b7 "
-    "All changes audit-logged \u00b7 Weights must sum to 100%"
-)
-st.divider()
+page_header("Scoring Engine Configuration", "Adjust factor weights, thresholds, and active status. All changes audit-logged.")
 
 tab_cfg, tab_audit = st.tabs(["Factor Configuration", "Audit Log"])
 
@@ -226,6 +237,48 @@ with tab_cfg:
                 )
 
         st.divider()
+
+        # ── Live weight summary ───────────────────────────────────────────────
+        _FACTOR_DISPLAY = {
+            "COMPA_RATIO":       "Pay Position (Compa-ratio)",
+            "RATING_TRAJECTORY": "Performance Trend",
+            "TIME_SINCE_MERIT":  "Time Since Merit Increase",
+            "TIME_IN_ROLE":      "Time in Role",
+            "SENTIMENT_TREND":   "1:1 Sentiment Trend",
+            "CHECKIN_FREQUENCY": "Check-in Frequency",
+            "FLIGHT_RISK_ROLE":  "Flight Risk Role",
+        }
+        active_rows = []
+        for fc in FACTOR_ORDER:
+            if fc not in config_dict:
+                continue
+            row = config_dict[fc]
+            is_active_now = st.session_state.get(
+                f"active_{fc}", bool(row.get("is_active", True))
+            )
+            if is_active_now:
+                w = st.session_state.get(
+                    f"weight_{fc}", _safe_float(row.get("weight", 0.0))
+                )
+                active_rows.append({
+                    "Factor": _FACTOR_DISPLAY.get(fc, fc),
+                    "Weight %": round(w, 1),
+                })
+
+        if active_rows:
+            st.dataframe(
+                pd.DataFrame(active_rows), use_container_width=True, hide_index=True
+            )
+
+        if weights_ok:
+            st.success("\u2713 Weights sum to 100% \u2014 ready to save.")
+        else:
+            gap = total_weight - 100.0
+            sign = "+" if gap > 0 else ""
+            st.error(
+                f"\u26a0\ufe0f Weights sum to {total_weight:.1f}% "
+                f"({sign}{gap:.1f}% from 100%). Adjust before saving."
+            )
 
         # ── Save button ───────────────────────────────────────────────────────
         if st.button(
