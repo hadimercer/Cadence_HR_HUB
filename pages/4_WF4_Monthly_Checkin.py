@@ -39,9 +39,24 @@ MUTED   = "#8892A4"
 
 # ─── SIDEBAR ─────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### Cadence")
-    st.markdown("HR Process Automation Hub")
-    st.divider()
+    st.sidebar.markdown("""
+<div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+            border-radius:0.6rem;padding:0.9rem 1.1rem 0.8rem;
+            margin-bottom:0.5rem;">
+  <div style="display:flex;align-items:center;gap:0.5rem;
+              margin-bottom:0.3rem;">
+    <span style="font-size:1.3rem;">⚙️</span>
+    <span style="color:#FFFFFF;font-size:1.15rem;font-weight:700;
+                 line-height:1.2;">Cadence</span>
+  </div>
+  <p style="color:rgba(255,255,255,0.82);font-size:0.82rem;
+            margin:0;line-height:1.3;">
+    HR Process Automation Hub
+  </p>
+</div>
+""", unsafe_allow_html=True)
+    st.sidebar.page_link("app.py", label="🏠 Home")
+    st.sidebar.divider()
     st.markdown("**Workforce Intelligence**")
     st.page_link("pages/1_WF1_Data_Upload.py",      label="Data Upload & Pipeline")
     st.page_link("pages/2_WF1_Dashboard.py",         label="KPI Dashboard")

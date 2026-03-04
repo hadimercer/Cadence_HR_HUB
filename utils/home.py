@@ -1,0 +1,384 @@
+import datetime
+
+import pandas as pd
+import streamlit as st
+
+from utils.db import query_df
+
+
+def render_home():
+    # ── Queries ────────────────────────────────────────────────────────────────
+    try:
+        _periods = query_df("""
+            SELECT DISTINCT reporting_period
+            FROM headcount_snapshots
+            ORDER BY reporting_period DESC
+            LIMIT 2
+        """)
+        current_period = _periods.iloc[0]["reporting_period"] if len(_periods) > 0 else None
+        prev_period    = _periods.iloc[1]["reporting_period"] if len(_periods) > 1 else None
+    except Exception:
+        current_period = None
+        prev_period    = None
+
+    try:
+        wf_curr = query_df("""
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'ACTIVE')
+                    AS active_count,
+                COUNT(*) FILTER (WHERE status = 'TERMINATED'
+                    AND termination_date >= date_trunc('month', reporting_period::date)
+                    AND termination_date <  date_trunc('month', reporting_period::date)
+                                 + interval '1 month')
+                    AS termed_this_period
+            FROM headcount_snapshots
+            WHERE reporting_period = %s
+        """, (current_period,)) if current_period else pd.DataFrame()
+    except Exception:
+        wf_curr = pd.DataFrame()
+
+    try:
+        wf_prev = query_df("""
+            SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE') AS active_count
+            FROM headcount_snapshots
+            WHERE reporting_period = %s
+        """, (prev_period,)) if prev_period else pd.DataFrame()
+    except Exception:
+        wf_prev = pd.DataFrame()
+
+    try:
+        _today      = datetime.date.today()
+        _week_start = _today - datetime.timedelta(days=_today.weekday())
+        _week_prev  = _week_start - datetime.timedelta(weeks=1)
+        oneonone_curr = query_df("""
+            SELECT COUNT(*) AS completed FROM one_on_ones
+            WHERE week_start_date = %s AND status = 'COMPLETED'
+        """, (_week_start,))
+        oneonone_prev = query_df("""
+            SELECT COUNT(*) AS completed FROM one_on_ones
+            WHERE week_start_date = %s AND status = 'COMPLETED'
+        """, (_week_prev,))
+    except Exception:
+        oneonone_curr = pd.DataFrame()
+        oneonone_prev = pd.DataFrame()
+
+    try:
+        checkin_curr = query_df("""
+            SELECT COUNT(*) FILTER (WHERE status = 'ACKED') AS acked,
+                   COUNT(*) AS total
+            FROM monthly_checkins
+            WHERE checkin_period = date_trunc('month', CURRENT_DATE)::date
+        """)
+    except Exception:
+        checkin_curr = pd.DataFrame()
+
+    try:
+        checkin_prev = query_df("""
+            SELECT COUNT(*) FILTER (WHERE status = 'ACKED') AS acked,
+                   COUNT(*) AS total
+            FROM monthly_checkins
+            WHERE checkin_period = date_trunc('month', CURRENT_DATE - interval '1 month')::date
+        """)
+    except Exception:
+        checkin_prev = pd.DataFrame()
+
+    try:
+        reviews_pending = query_df("""
+            SELECT COUNT(*) AS pending FROM performance_reviews
+            WHERE status = 'PENDING_HR_APPROVAL'
+        """)
+    except Exception:
+        reviews_pending = pd.DataFrame()
+
+    try:
+        merit_df = query_df("""
+            SELECT cycle_label, submission_deadline, status
+            FROM merit_cycles
+            WHERE status = 'OPEN'
+            ORDER BY opened_at DESC
+            LIMIT 1
+        """)
+    except Exception:
+        merit_df = pd.DataFrame()
+
+    try:
+        eligibility_df = query_df("""
+            SELECT COUNT(*) FILTER (WHERE effective_determination = 'ELIGIBLE') AS eligible,
+                   COUNT(*) AS total
+            FROM merit_eligibility me
+            JOIN merit_cycles mc ON mc.id = me.cycle_id
+            WHERE mc.status = 'OPEN'
+        """) if len(merit_df) > 0 else pd.DataFrame()
+    except Exception:
+        eligibility_df = pd.DataFrame()
+
+    try:
+        recs_df = query_df("""
+            SELECT COUNT(*) FILTER (WHERE mr.status = 'SUBMITTED') AS submitted,
+                   COUNT(*) AS total
+            FROM merit_recommendations mr
+            JOIN merit_cycles mc ON mc.id = mr.cycle_id
+            WHERE mc.status = 'OPEN'
+        """) if len(merit_df) > 0 else pd.DataFrame()
+    except Exception:
+        recs_df = pd.DataFrame()
+
+    try:
+        risk_today = query_df("""
+            SELECT rag_status, COUNT(*) AS count, AVG(composite_score) AS avg_score
+            FROM attrition_risk_scores
+            WHERE calculation_date = (SELECT MAX(calculation_date) FROM attrition_risk_scores)
+            GROUP BY rag_status
+        """)
+    except Exception:
+        risk_today = pd.DataFrame()
+
+    try:
+        risk_yesterday = query_df("""
+            SELECT rag_status, COUNT(*) AS count, AVG(composite_score) AS avg_score
+            FROM attrition_risk_scores
+            WHERE calculation_date = (
+                SELECT MAX(calculation_date) FROM attrition_risk_scores
+                WHERE calculation_date < (
+                    SELECT MAX(calculation_date) FROM attrition_risk_scores))
+            GROUP BY rag_status
+        """)
+    except Exception:
+        risk_yesterday = pd.DataFrame()
+
+    def _val(df, col, default="—"):
+        try:
+            v = df.iloc[0][col]
+            return default if pd.isna(v) else v
+        except Exception:
+            return default
+
+    def _delta(current, previous, fmt="+.0f", suffix=""):
+        try:
+            diff = float(current) - float(previous)
+            sign = "+" if diff >= 0 else ""
+            return f"{sign}{diff:.0f}{suffix}"
+        except Exception:
+            return None
+
+    def _rag_count(df, rag):
+        try:
+            row = df[df["rag_status"] == rag]
+            return int(row.iloc[0]["count"]) if len(row) > 0 else 0
+        except Exception:
+            return 0
+
+    page_header(
+        "Cadence \u2014 HR Process Automation Hub",
+        "End-to-end HR workflow automation \u2014 from headcount upload to attrition risk scoring.",
+    )
+    st.caption("You are on the home page — use the sidebar to navigate.")
+
+    # ── Workflow cards — 2×2 grid ──────────────────────────────────────────────
+    col_a, col_b = st.columns(2, gap="medium")
+
+    with col_a:
+        try:
+            active_curr = _val(wf_curr, "active_count", 0)
+            _termed     = _val(wf_curr, "termed_this_period", 0)
+            _active     = _val(wf_curr, "active_count", 0)
+            _atr        = round(float(_termed) / float(_active) * 100, 1) if float(_active) > 0 else 0
+            atr_str     = str(_atr) + "%"
+        except Exception:
+            active_curr = "—"
+            atr_str     = "—"
+        st.markdown(
+            '<div style="background:#262730;border-radius:0.75rem;padding:1.2rem 1.4rem;'
+            'margin-bottom:0.8rem;border-left:4px solid #4DB6AC;">'
+            '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;">'
+            '<span style="font-size:1.35rem;">\U0001f4ca</span>'
+            '<span style="font-size:1.1rem;font-weight:700;color:#FAFAFA;">Workforce Intelligence</span>'
+            '<span style="background:#4DB6AC;color:#0E1117;font-size:0.7rem;font-weight:700;'
+            'padding:2px 8px;border-radius:999px;margin-left:auto;">01</span></div>'
+            '<p style="color:rgba(255,255,255,0.68);font-size:0.875rem;margin:0;line-height:1.55;">'
+            'Upload monthly HRIS exports and validate headcount data. Live KPI dashboard '
+            'tracks attrition rate, span of control, and headcount versus budget.'
+            '</p>'
+            '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.9rem;">'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Active Employees</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(active_curr) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Attrition Rate</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(atr_str) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">vs Budget</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">—</div>'
+            '</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.page_link("pages/1_WF1_Data_Upload.py", label="\u2192  Data Upload & Pipeline", use_container_width=True)
+
+    with col_b:
+        try:
+            curr_1on1  = _val(oneonone_curr, "completed", 0)
+            _acked     = _val(checkin_curr, "acked", 0)
+            _total     = _val(checkin_curr, "total", 0)
+            _comp      = round(float(_acked) / float(_total) * 100, 1) if float(_total) > 0 else 0
+            comp_str   = str(_comp) + "%"
+            pending_rev = _val(reviews_pending, "pending", "—")
+        except Exception:
+            curr_1on1   = "—"
+            comp_str    = "—"
+            pending_rev = "—"
+        st.markdown(
+            '<div style="background:#262730;border-radius:0.75rem;padding:1.2rem 1.4rem;'
+            'margin-bottom:0.8rem;border-left:4px solid #8E44AD;">'
+            '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;">'
+            '<span style="font-size:1.35rem;">\U0001f5d3\ufe0f</span>'
+            '<span style="font-size:1.1rem;font-weight:700;color:#FAFAFA;">Performance Management</span>'
+            '<span style="background:#8E44AD;color:#FFFFFF;font-size:0.7rem;font-weight:700;'
+            'padding:2px 8px;border-radius:999px;margin-left:auto;">02</span></div>'
+            '<p style="color:rgba(255,255,255,0.68);font-size:0.875rem;margin:0;line-height:1.55;">'
+            'Structured weekly 1:1 capture, monthly goal check-ins, and quarterly review cycles. '
+            'Ratings produced here drive merit eligibility in the compensation workflow.'
+            '</p>'
+            '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.9rem;">'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">1:1s This Week</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(curr_1on1) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Check-in Compliance</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(comp_str) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Pending Approval</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(pending_rev) + '</div>'
+            '</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.page_link("pages/3_WF4_Weekly_1on1.py", label="\u2192  Weekly 1:1s", use_container_width=True)
+
+    col_c, col_d = st.columns(2, gap="medium")
+
+    with col_c:
+        try:
+            if len(merit_df) > 0:
+                _deadline    = merit_df.iloc[0]["submission_deadline"]
+                _days_left   = (pd.to_datetime(_deadline).date() - datetime.date.today()).days
+                deadline_str = str(_days_left) + "d left"
+            else:
+                deadline_str = "No cycle"
+            _eligible  = _val(eligibility_df, "eligible", "—")
+            _tot_elig  = _val(eligibility_df, "total", "—")
+            elig_str   = str(_eligible) + " of " + str(_tot_elig) if _eligible != "—" else "—"
+            _submitted = _val(recs_df, "submitted", "—")
+            _tot_recs  = _val(recs_df, "total", "—")
+            recs_str   = str(_submitted) + " of " + str(_tot_recs) if _submitted != "—" else "—"
+        except Exception:
+            deadline_str = "—"
+            elig_str     = "—"
+            recs_str     = "—"
+        st.markdown(
+            '<div style="background:#262730;border-radius:0.75rem;padding:1.2rem 1.4rem;'
+            'margin-bottom:0.8rem;border-left:4px solid #F39C12;">'
+            '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;">'
+            '<span style="font-size:1.35rem;">\U0001f4b0</span>'
+            '<span style="font-size:1.1rem;font-weight:700;color:#FAFAFA;">Compensation Review</span>'
+            '<span style="background:#F39C12;color:#0E1117;font-size:0.7rem;font-weight:700;'
+            'padding:2px 8px;border-radius:999px;margin-left:auto;">03</span></div>'
+            '<p style="color:rgba(255,255,255,0.68);font-size:0.875rem;margin:0;line-height:1.55;">'
+            'Six-gate eligibility engine and manager recommendation workflow for merit cycles. '
+            'Budget utilisation tracked in real time against approved headcount.'
+            '</p>'
+            '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.9rem;">'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Cycle Deadline</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(deadline_str) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Eligible</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(elig_str) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Recommendations</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(recs_str) + '</div>'
+            '</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.page_link("pages/6_WF2_Merit_Cycle.py", label="\u2192  Merit Cycle", use_container_width=True)
+
+    with col_d:
+        try:
+            red_curr = _rag_count(risk_today, "RED")
+            amb_curr = _rag_count(risk_today, "AMBER")
+            avg_curr = risk_today["avg_score"].mean()
+            avg_str  = str(round(float(avg_curr), 1))
+        except Exception:
+            red_curr = "—"
+            amb_curr = "—"
+            avg_str  = "—"
+        st.markdown(
+            '<div style="background:#262730;border-radius:0.75rem;padding:1.2rem 1.4rem;'
+            'margin-bottom:0.8rem;border-left:4px solid #E74C3C;">'
+            '<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;">'
+            '<span style="font-size:1.35rem;">\U0001f3af</span>'
+            '<span style="font-size:1.1rem;font-weight:700;color:#FAFAFA;">Attrition Risk</span>'
+            '<span style="background:#E74C3C;color:#FFFFFF;font-size:0.7rem;font-weight:700;'
+            'padding:2px 8px;border-radius:999px;margin-left:auto;">04</span></div>'
+            '<p style="color:rgba(255,255,255,0.68);font-size:0.875rem;margin:0;line-height:1.55;">'
+            'Seven-factor rules-based risk scoring. Ranked register with configurable factor '
+            'weights and retention action logging.'
+            '</p>'
+            '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.9rem;">'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">High Risk</div>'
+            '<div style="color:#E05252;font-size:1.1rem;font-weight:700;">' + str(red_curr) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">At Risk</div>'
+            '<div style="color:#E8A838;font-size:1.1rem;font-weight:700;">' + str(amb_curr) + '</div>'
+            '</div>'
+            '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
+            '<div style="color:#8892A4;font-size:0.7rem;">Avg Score</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(avg_str) + '</div>'
+            '</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.page_link("pages/8_WF3_Risk_Dashboard.py", label="\u2192  Risk Dashboard", use_container_width=True)
+
+
+
+    st.markdown(
+        '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);'
+        'border-radius:0.6rem;padding:0.85rem 1.4rem;margin-top:0.2rem;'
+        'display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">'
+        '<span style="color:rgba(255,255,255,0.45);font-size:0.78rem;font-weight:700;'
+        'letter-spacing:0.07em;">DATA FLOW</span>'
+        '<span style="color:#4DB6AC;font-size:0.875rem;font-weight:600;">Headcount</span>'
+        '<span style="color:rgba(255,255,255,0.3);font-size:0.9rem;">\u2192</span>'
+        '<span style="color:#8E44AD;font-size:0.875rem;font-weight:600;">Performance</span>'
+        '<span style="color:rgba(255,255,255,0.3);font-size:0.9rem;">\u2192</span>'
+        '<span style="color:#F39C12;font-size:0.875rem;font-weight:600;">Compensation</span>'
+        '<span style="color:rgba(255,255,255,0.3);font-size:0.9rem;">\u2192</span>'
+        '<span style="color:#E74C3C;font-size:0.875rem;font-weight:600;">Risk Score</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def page_header(title, subtitle=""):
+    sub = f'<p style="color:rgba(255,255,255,0.82); font-size:0.95rem; margin:0;">{subtitle}</p>' if subtitle else ""
+    st.markdown(f"""
+    <div style="background:linear-gradient(90deg,#1B4F72 0%,#2E86C1 100%);
+                border-radius:0.6rem;padding:1rem 1.4rem 0.9rem;margin-bottom:1.2rem;">
+      <h1 style="color:#FFFFFF;font-size:1.8rem;font-weight:700;
+                 margin:0 0 0.2rem 0;line-height:1.2;">{title}</h1>
+      {sub}
+    </div>""", unsafe_allow_html=True)
