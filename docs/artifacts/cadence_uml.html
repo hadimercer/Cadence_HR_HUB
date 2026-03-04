@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — UML Class Diagram</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+:root{
+  --bg:#090d13;--surface:#0e1520;--border:#1a2535;
+  --accent:#3d7fff;--accent2:#6c4fff;--gold:#d4a843;
+  --green:#2ecc7a;--red:#e05252;--text:#c8daf0;--muted:#4a6278;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',system-ui,sans-serif;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+#hdr{height:50px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;}
+.logo{font-size:17px;font-weight:800;background:linear-gradient(135deg,#3d7fff,#6c4fff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hsep{width:1px;height:20px;background:var(--border);}
+.htitle{font-size:13px;font-weight:600;flex:1;}
+.hsub{font-size:9px;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:1px;}
+.ctrls{display:flex;gap:5px;}
+.cb{background:#111d2e;border:1px solid var(--border);color:var(--text);
+  padding:4px 12px;border-radius:3px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace;}
+.cb:hover{border-color:var(--accent);color:var(--accent);}
+
+#vc{flex:1;overflow:hidden;position:relative;cursor:grab;}
+#vc.dragging{cursor:grabbing;}
+#canvas{position:absolute;top:0;left:0;transform-origin:0 0;}
+
+#leg{position:absolute;bottom:14px;right:14px;background:var(--surface);
+  border:1px solid var(--border);border-radius:6px;padding:10px 13px;
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);z-index:10;}
+.lt{font-weight:700;color:var(--text);font-size:8px;letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:7px;}
+.lr{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+
+#wfleg{position:absolute;bottom:14px;left:14px;background:var(--surface);
+  border:1px solid var(--border);border-radius:6px;padding:10px 13px;
+  font-family:'DM Mono',monospace;font-size:9px;z-index:10;}
+.wfr{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.wfdot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <span class="logo">Cadence</span>
+  <div class="hsep"></div>
+  <span class="htitle">UML Class Diagram — Data Model</span>
+  <span class="hsub">13 TABLES · 4 WORKFLOWS · ALL RELATIONSHIPS</span>
+  <div class="ctrls">
+    <button class="cb" onclick="resetView()">Fit</button>
+    <button class="cb" onclick="zoomBy(1.2)">+</button>
+    <button class="cb" onclick="zoomBy(0.8)">−</button>
+  </div>
+</div>
+
+<div id="vc">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <div id="leg">
+    <div class="lt">Relationships</div>
+    <div class="lr"><svg width="40" height="8"><line x1="0" y1="4" x2="32" y2="4" stroke="#2a5090" stroke-width="1.3"/><polygon points="32,1 40,4 32,7" fill="#2a5090"/></svg><span>FK reference</span></div>
+    <div class="lr"><svg width="40" height="8"><line x1="0" y1="4" x2="32" y2="4" stroke="#2a5090" stroke-width="1.3" stroke-dasharray="5,3"/><polygon points="32,1 40,4 32,7" fill="#2a5090"/></svg><span>Soft reference</span></div>
+    <div class="lr"><svg width="14" height="14"><rect x="1" y="1" width="12" height="12" rx="2" fill="#0d1824" stroke="#1e3a5f" stroke-width="1.2"/></svg><span>PK / FK field</span></div>
+    <div class="lr"><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="#0a1520" stroke="#3d7fff" stroke-width="1.2"/></svg><span>UUID primary key</span></div>
+  </div>
+
+  <div id="wfleg">
+    <div class="lt">Workflow Layer</div>
+    <div class="wfr"><div class="wfdot" style="background:#1e3a5f;border:1px solid #2d5090;"></div><span style="color:#5a8abf;font-family:'DM Mono',monospace;font-size:9px;">WF1 — Headcount Reporting</span></div>
+    <div class="wfr"><div class="wfdot" style="background:#1e3a2a;border:1px solid #2d6040;"></div><span style="color:#4a9a6a;font-family:'DM Mono',monospace;font-size:9px;">WF4 — Performance Management</span></div>
+    <div class="wfr"><div class="wfdot" style="background:#3a2a10;border:1px solid #6a4a18;"></div><span style="color:#c49a30;font-family:'DM Mono',monospace;font-size:9px;">WF2 — Compensation Review</span></div>
+    <div class="wfr"><div class="wfdot" style="background:#2a1a1a;border:1px solid #602020;"></div><span style="color:#b04040;font-family:'DM Mono',monospace;font-size:9px;">WF3 — Attrition Risk Scoring</span></div>
+    <div class="wfr"><div class="wfdot" style="background:#1a1a2e;border:1px solid #3a3060;"></div><span style="color:#7060c0;font-family:'DM Mono',monospace;font-size:9px;">Cross-cutting / System</span></div>
+  </div>
+</div>
+
+<script>
+const SVG_NS='http://www.w3.org/2000/svg';
+function N(tag,a){const e=document.createElementNS(SVG_NS,tag);for(const[k,v]of Object.entries(a))e.setAttribute(k,v);return e;}
+
+// ── Colour palette ─────────────────────────────────
+const C={
+  bg:'#090d13',
+  // table header fills by workflow
+  wf1h:'#0d1e30', wf1s:'#1e3a5f', wf1t:'#5a8abf',
+  wf4h:'#0d1e15', wf4s:'#1e4030', wf4t:'#4a9a6a',
+  wf2h:'#1e1608', wf2s:'#4a3010', wf2t:'#c49a30',
+  wf3h:'#1a0d0d', wf3s:'#502020', wf3t:'#b04040',
+  sys:'#0f1220',  syss:'#2a2a50', syst:'#7060c0',
+  // body
+  body:'#0a1018', bodyS:'#162030',
+  // field text
+  ft:'#9ab8d0', fts:'#6a8aaa', ftKey:'#d4a843',
+  // relationship line
+  rel:'#1e3a5f', soft:'#1e2a3a',
+  // type annotation
+  type:'#3a5a70',
+};
+
+// ── Table definition format ─────────────────────────
+// {id, label, wf, x, y, fields:[{name, type, pk, fk, nullable}]}
+const TABLES=[
+  // ── Column layout (all heights calculated: H = 32+16+(fields×18)) ──
+  // Col A  x:20   — salary_bands(h:228), pipeline_run_log(h:300), merit_cycles(h:228)
+  // Col B  x:290  — users(h:210), headcount_snapshots(h:522), merit_eligibility(h:246)
+  // Col C  x:560  — merit_recommendations(h:354)
+  // Col D  x:830  — performance_reviews(h:354), attrition_risk_scores(h:282)
+  // Col E  x:1100 — one_on_ones(h:246), monthly_checkins(h:246), risk_factor_config(h:282), retention_actions(h:228)
+  // GAP between tables in same column: 30px
+
+  {
+    id:'salary_bands', label:'salary_bands', wf:'wf2', x:20, y:20,
+    // h = 32+16+(10×18) = 228
+    fields:[
+      {name:'id',           type:'uuid',     pk:true},
+      {name:'grade',        type:'text',     note:'unique'},
+      {name:'job_family',   type:'text',     nullable:true},
+      {name:'band_minimum', type:'numeric',  },
+      {name:'band_midpoint',type:'numeric',  },
+      {name:'band_maximum', type:'numeric',  },
+      {name:'effective_from',type:'date',    },
+      {name:'effective_to', type:'date',     nullable:true},
+      {name:'updated_by',   type:'uuid',     fk:true, note:'→ users.id'},
+      {name:'updated_at',   type:'timestamptz'},
+    ]
+  },
+  {
+    id:'pipeline_run_log', label:'pipeline_run_log', wf:'wf1', x:20, y:278,
+    // y = 20+228+30=278  h = 32+16+(14×18)=300
+    fields:[
+      {name:'id',                   type:'uuid',    pk:true},
+      {name:'run_timestamp',        type:'timestamptz'},
+      {name:'triggered_by',         type:'uuid',    fk:true, note:'→ users.id'},
+      {name:'reporting_period',     type:'date',    },
+      {name:'total_records',        type:'integer', },
+      {name:'records_processed',    type:'integer', },
+      {name:'records_rejected',     type:'integer', },
+      {name:'new_hire_count',       type:'integer', },
+      {name:'leaver_count',         type:'integer', },
+      {name:'threshold_flags_raised',type:'integer',},
+      {name:'validation_warnings',  type:'text',    nullable:true},
+      {name:'rejection_detail',     type:'text',    nullable:true},
+      {name:'status',               type:'text',    note:'SUCCESS|PARTIAL|FAILED'},
+      {name:'is_overwrite',         type:'boolean', },
+    ]
+  },
+  {
+    id:'merit_cycles', label:'merit_cycles', wf:'wf2', x:20, y:608,
+    // y = 278+300+30=608  h = 32+16+(10×18)=228
+    fields:[
+      {name:'id',                 type:'uuid',       pk:true},
+      {name:'cycle_label',        type:'text',       note:'composite unique with employee_group'},
+      {name:'cycle_period',       type:'text',       note:'e.g. 2026-H1'},
+      {name:'employee_group',     type:'text',       },
+      {name:'status',             type:'text',       note:'OPEN|CLOSED|DRAFT'},
+      {name:'submission_deadline',type:'date',       },
+      {name:'total_budget',       type:'numeric',    },
+      {name:'opened_by',          type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'opened_at',          type:'timestamptz',},
+      {name:'closed_at',          type:'timestamptz',nullable:true},
+    ]
+  },
+  {
+    id:'users', label:'users', wf:'sys', x:290, y:20,
+    // h = 32+16+(9×18)=210
+    fields:[
+      {name:'id',           type:'uuid',        pk:true},
+      {name:'email',        type:'text',        },
+      {name:'full_name',    type:'text',        },
+      {name:'role',         type:'text',        note:'HR_ADMIN|ANALYST|MANAGER|CHRO|FINANCE'},
+      {name:'employee_id',  type:'text',        nullable:true, note:'→ headcount soft ref'},
+      {name:'manager_id',   type:'uuid',        fk:true, nullable:true, note:'→ users.id'},
+      {name:'is_active',    type:'boolean',     },
+      {name:'created_at',   type:'timestamptz', },
+      {name:'last_login_at',type:'timestamptz', nullable:true},
+    ]
+  },
+  {
+    id:'headcount_snapshots', label:'headcount_snapshots', wf:'wf1', x:290, y:260,
+    // y = 20+210+30=260  h = 32+16+(26×18)=516
+    fields:[
+      {name:'id',                  type:'uuid',    pk:true},
+      {name:'reporting_period',    type:'date',    note:'composite PK with employee_id'},
+      {name:'employee_id',         type:'text',    note:'unique · FK target for all WFs'},
+      {name:'first_name',          type:'text',    },
+      {name:'last_name',           type:'text',    },
+      {name:'department',          type:'text',    },
+      {name:'cost_centre',         type:'text',    },
+      {name:'location',            type:'text',    },
+      {name:'job_title',           type:'text',    },
+      {name:'job_family',          type:'text',    },
+      {name:'level',               type:'text',    },
+      {name:'employment_type',     type:'text',    },
+      {name:'manager_id',          type:'text',    nullable:true, note:'→ employee_id (soft)'},
+      {name:'hire_date',           type:'date',    },
+      {name:'role_start_date',     type:'date',    },
+      {name:'termination_date',    type:'date',    nullable:true},
+      {name:'termination_type',    type:'text',    nullable:true},
+      {name:'salary',              type:'numeric', },
+      {name:'salary_grade',        type:'text',    fk:true, note:'→ salary_bands.grade'},
+      {name:'budgeted_headcount',  type:'numeric', nullable:true},
+      {name:'status',              type:'text',    },
+      {name:'tenure_months',       type:'numeric', },
+      {name:'tenure_in_role_months',type:'numeric',},
+      {name:'is_new_hire',         type:'boolean', },
+      {name:'headcount_delta',     type:'integer', nullable:true},
+      {name:'uploaded_by',         type:'uuid',    fk:true, note:'→ users.id'},
+      {name:'uploaded_at',         type:'timestamptz'},
+    ]
+  },
+  {
+    id:'merit_eligibility', label:'merit_eligibility', wf:'wf2', x:290, y:806,
+    // y = 260+516+30=806  h = 32+16+(11×18)=246
+    fields:[
+      {name:'id',                    type:'uuid', pk:true},
+      {name:'cycle_id',              type:'uuid', fk:true, note:'→ merit_cycles.id'},
+      {name:'employee_id',           type:'text', fk:true, note:'→ headcount_snapshots'},
+      {name:'determination',         type:'text', note:'ELIGIBLE|INELIGIBLE'},
+      {name:'ineligibility_reasons', type:'text', nullable:true},
+      {name:'exclusion_reason',      type:'text', nullable:true},
+      {name:'override_determination',type:'text', nullable:true},
+      {name:'override_justification',type:'text', nullable:true},
+      {name:'overridden_by',         type:'uuid', fk:true, nullable:true, note:'→ users.id'},
+      {name:'overridden_at',         type:'timestamptz', nullable:true},
+      {name:'effective_determination',type:'text', note:'ELIGIBLE|INELIGIBLE (post-override)'},
+    ]
+  },
+  {
+    id:'merit_recommendations', label:'merit_recommendations', wf:'wf2', x:560, y:20,
+    // h = 32+16+(15×18)=318  placed top of col C
+    fields:[
+      {name:'id',               type:'uuid',       pk:true},
+      {name:'cycle_id',         type:'uuid',       fk:true, note:'→ merit_cycles.id'},
+      {name:'employee_id',      type:'text',       fk:true, note:'→ headcount_snapshots'},
+      {name:'manager_id',       type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'base_increase_pct',type:'numeric',    note:'2–6% range'},
+      {name:'bonus_amount',     type:'numeric',    },
+      {name:'effective_date',   type:'date',       },
+      {name:'justification_note',type:'text',      nullable:true},
+      {name:'status',           type:'text',       note:'DRAFT|SUBMITTED|APPROVED'},
+      {name:'exceeds_band_max', type:'boolean',    },
+      {name:'submitted_at',     type:'timestamptz',nullable:true},
+      {name:'approved_by',      type:'uuid',       fk:true, nullable:true, note:'→ users.id'},
+      {name:'approved_at',      type:'timestamptz',nullable:true},
+      {name:'chro_approved_by', type:'uuid',       fk:true, nullable:true, note:'→ users.id'},
+      {name:'chro_approved_at', type:'timestamptz',nullable:true},
+    ]
+  },
+  {
+    id:'performance_reviews', label:'performance_reviews', wf:'wf4', x:830, y:20,
+    // h = 32+16+(17×18)=354
+    fields:[
+      {name:'id',                          type:'uuid',       pk:true},
+      {name:'employee_id',                 type:'text',       fk:true, note:'→ headcount_snapshots'},
+      {name:'manager_id',                  type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'review_quarter',              type:'text',       note:'e.g. 2025-Q4'},
+      {name:'review_type',                 type:'text',       note:'QUARTERLY'},
+      {name:'status',                      type:'text',       note:'SELF_SUBMITTED|MANAGER_SUBMITTED|HR_APPROVED'},
+      {name:'self_assessment_submitted_at',type:'timestamptz',nullable:true},
+      {name:'manager_submitted_at',        type:'timestamptz',nullable:true},
+      {name:'hr_approved_by',              type:'uuid',       fk:true, nullable:true, note:'→ users.id'},
+      {name:'hr_approved_at',              type:'timestamptz',nullable:true},
+      {name:'rating_overall',              type:'text',       nullable:true, note:'EXCEEDS|MEETS|BELOW'},
+      {name:'rating_delivery',             type:'text',       nullable:true},
+      {name:'rating_behaviour',            type:'text',       nullable:true},
+      {name:'rating_development',          type:'text',       nullable:true},
+      {name:'narrative_overall',           type:'text',       nullable:true},
+      {name:'self_assessment_text',        type:'text',       nullable:true},
+      {name:'return_note',                 type:'text',       nullable:true},
+    ]
+  },
+  {
+    id:'attrition_risk_scores', label:'attrition_risk_scores', wf:'wf3', x:830, y:404,
+    // y = 20+354+30=404  h = 32+16+(13×18)=282
+    fields:[
+      {name:'id',                    type:'uuid',    pk:true},
+      {name:'employee_id',           type:'text',    fk:true, note:'→ headcount_snapshots'},
+      {name:'calculation_date',      type:'date',    note:'composite unique with employee_id'},
+      {name:'composite_score',       type:'numeric', note:'0–100'},
+      {name:'rag_status',            type:'text',    note:'RED|AMBER|GREEN'},
+      {name:'score_compa_ratio',     type:'numeric', note:'factor COMPA_RATIO · w=0.15'},
+      {name:'score_rating_trend',    type:'numeric', note:'factor RATING_TREND · w=0.20'},
+      {name:'score_time_since_merit',type:'numeric', note:'factor TIME_SINCE_MERIT · w=0.15'},
+      {name:'score_time_in_role',    type:'numeric', note:'factor TIME_IN_ROLE · w=0.10'},
+      {name:'score_sentiment',       type:'numeric', note:'factor SENTIMENT · w=0.15'},
+      {name:'score_checkin_freq',    type:'numeric', note:'factor CHECKIN_FREQ · w=0.15'},
+      {name:'score_role_risk',       type:'numeric', note:'factor ROLE_RISK · w=0.10'},
+      {name:'config_snapshot',       type:'text',    note:'JSON snapshot of weights at calc time'},
+    ]
+  },
+  {
+    id:'one_on_ones', label:'one_on_ones', wf:'wf4', x:1100, y:20,
+    // h = 32+16+(11×18)=246
+    fields:[
+      {name:'id',                  type:'uuid',       pk:true},
+      {name:'employee_id',         type:'text',       fk:true, note:'→ headcount_snapshots'},
+      {name:'manager_id',          type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'week_start_date',     type:'date',       note:'composite unique with employee_id'},
+      {name:'status',              type:'text',       note:'COMPLETED|MISSED'},
+      {name:'employee_topics',     type:'text',       nullable:true},
+      {name:'agreed_actions',      type:'text',       nullable:true},
+      {name:'blockers_raised',     type:'text',       nullable:true},
+      {name:'sentiment_flag',      type:'text',       nullable:true, note:'POSITIVE|NEUTRAL|NEGATIVE'},
+      {name:'manager_submitted_at',type:'timestamptz',nullable:true},
+      {name:'missed_alert_sent_at',type:'timestamptz',nullable:true},
+    ]
+  },
+  {
+    id:'monthly_checkins', label:'monthly_checkins', wf:'wf4', x:1100, y:296,
+    // y = 20+246+30=296  h = 32+16+(11×18)=246
+    fields:[
+      {name:'id',                       type:'uuid',       pk:true},
+      {name:'employee_id',              type:'text',       fk:true, note:'→ headcount_snapshots'},
+      {name:'manager_id',               type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'checkin_period',           type:'date',       note:'composite unique with employee_id'},
+      {name:'status',                   type:'text',       note:'ACKED|PENDING_ACK'},
+      {name:'goal_progress',            type:'text',       },
+      {name:'key_achievements',         type:'text',       },
+      {name:'development_focus',        type:'text',       },
+      {name:'sentiment_rating',         type:'text',       note:'HIGH|MEDIUM|LOW'},
+      {name:'manager_submitted_at',     type:'timestamptz',},
+      {name:'employee_acknowledged_at', type:'timestamptz',nullable:true},
+    ]
+  },
+  {
+    id:'risk_factor_config', label:'risk_factor_config', wf:'wf3', x:1100, y:572,
+    // y = 296+246+30=572  h = 32+16+(13×18)=282
+    fields:[
+      {name:'id',                  type:'uuid',       pk:true},
+      {name:'factor_code',         type:'text',       note:'unique · COMPA_RATIO|RATING_TREND|…'},
+      {name:'factor_name',         type:'text',       },
+      {name:'factor_description',  type:'text',       },
+      {name:'data_source',         type:'text',       note:'WF1|WF2|WF4|S2'},
+      {name:'is_active',           type:'boolean',    },
+      {name:'weight',              type:'numeric',    note:'weights sum to 1.00'},
+      {name:'threshold_medium',    type:'numeric',    },
+      {name:'threshold_high',      type:'numeric',    },
+      {name:'threshold_direction', type:'text',       note:'HIGHER_WORSE|LOWER_WORSE'},
+      {name:'is_binary',           type:'boolean',    },
+      {name:'updated_by',          type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'updated_at',          type:'timestamptz',},
+    ]
+  },
+  {
+    id:'retention_actions', label:'retention_actions', wf:'wf3', x:1100, y:884,
+    // y = 572+282+30=884  h = 32+16+(10×18)=228
+    fields:[
+      {name:'id',                 type:'uuid',       pk:true},
+      {name:'employee_id',        type:'text',       fk:true, note:'→ headcount_snapshots'},
+      {name:'flagged_by',         type:'uuid',       fk:true, note:'→ users.id'},
+      {name:'flagged_at',         type:'timestamptz',},
+      {name:'risk_score_at_flag', type:'numeric',    },
+      {name:'rag_at_flag',        type:'text',       note:'RED|AMBER'},
+      {name:'action_description', type:'text',       nullable:true},
+      {name:'outcome',            type:'text',       nullable:true},
+      {name:'resolved_at',        type:'timestamptz',nullable:true},
+      {name:'status',             type:'text',       note:'OPEN|RESOLVED|ESCALATED'},
+    ]
+  },
+  // config_audit_log omitted for diagram clarity — cross-cutting, references users only
+];
+
+// ── Relationship definitions ─────────────────────────
+// {from: tableId, to: tableId, fromField, toField, soft}
+const RELS=[
+  // salary_bands → headcount
+  {from:'salary_bands',        to:'headcount_snapshots', label:'1:N grade'},
+  // users → headcount
+  {from:'users',               to:'headcount_snapshots', label:'1:N uploaded_by'},
+  // users → pipeline_run_log
+  {from:'users',               to:'pipeline_run_log',    label:'1:N triggered_by'},
+  // headcount → performance_reviews
+  {from:'headcount_snapshots', to:'performance_reviews', label:'1:N employee_id'},
+  // users → performance_reviews (manager)
+  {from:'users',               to:'performance_reviews', label:'1:N manager_id'},
+  // headcount → one_on_ones
+  {from:'headcount_snapshots', to:'one_on_ones',         label:'1:N employee_id'},
+  // users → one_on_ones (manager)
+  {from:'users',               to:'one_on_ones',         label:'1:N manager_id'},
+  // headcount → monthly_checkins
+  {from:'headcount_snapshots', to:'monthly_checkins',    label:'1:N employee_id'},
+  // users → monthly_checkins (manager)
+  {from:'users',               to:'monthly_checkins',    label:'1:N manager_id'},
+  // users → merit_cycles
+  {from:'users',               to:'merit_cycles',        label:'1:N opened_by'},
+  // merit_cycles → merit_eligibility
+  {from:'merit_cycles',        to:'merit_eligibility',   label:'1:N cycle_id'},
+  // headcount → merit_eligibility
+  {from:'headcount_snapshots', to:'merit_eligibility',   label:'1:N employee_id'},
+  // merit_cycles → merit_recommendations
+  {from:'merit_cycles',        to:'merit_recommendations',label:'1:N cycle_id'},
+  // headcount → merit_recommendations
+  {from:'headcount_snapshots', to:'merit_recommendations',label:'1:N employee_id'},
+  // users → merit_recommendations (manager)
+  {from:'users',               to:'merit_recommendations',label:'1:N manager_id'},
+  // headcount → attrition_risk_scores
+  {from:'headcount_snapshots', to:'attrition_risk_scores',label:'1:N employee_id'},
+  // risk_factor_config → attrition_risk_scores (logical)
+  {from:'risk_factor_config',  to:'attrition_risk_scores',label:'config → scores', soft:true},
+  // headcount → retention_actions
+  {from:'headcount_snapshots', to:'retention_actions',   label:'1:N employee_id'},
+  // users → retention_actions (flagged_by)
+  {from:'users',               to:'retention_actions',   label:'1:N flagged_by'},
+  // users → risk_factor_config (updated_by)
+  {from:'users',               to:'risk_factor_config',  label:'1:N updated_by'},
+  // users → salary_bands (updated_by)
+  {from:'users',               to:'salary_bands',        label:'1:N updated_by'},
+];
+
+// ── Layout constants ─────────────────────────────────
+const TW=240, FH=18, HEADER=32, PAD=8;
+
+function tableHeight(t){ return HEADER + PAD + t.fields.length*FH + PAD; }
+
+function wfColors(wf){
+  const m={
+    wf1:{h:C.wf1h,s:C.wf1s,t:C.wf1t},
+    wf4:{h:C.wf4h,s:C.wf4s,t:C.wf4t},
+    wf2:{h:C.wf2h,s:C.wf2s,t:C.wf2t},
+    wf3:{h:C.wf3h,s:C.wf3s,t:C.wf3t},
+    sys:{h:C.sys, s:C.syss,t:C.syst},
+  };
+  return m[wf]||m.sys;
+}
+
+// Compute bounding box centres for each table (for relationship routing)
+const tboxes={};
+function tbox(t){
+  if(tboxes[t.id]) return tboxes[t.id];
+  const h=tableHeight(t);
+  tboxes[t.id]={x:t.x, y:t.y, w:TW, h, cx:t.x+TW/2, cy:t.y+h/2};
+  return tboxes[t.id];
+}
+
+function drawTable(svg,t){
+  const wf=wfColors(t.wf);
+  const h=tableHeight(t);
+  const g=N('g',{});
+
+  // Shadow
+  g.appendChild(N('rect',{x:t.x+3,y:t.y+3,width:TW,height:h,rx:5,fill:'rgba(0,0,0,0.4)'}));
+
+  // Body
+  g.appendChild(N('rect',{x:t.x,y:t.y,width:TW,height:h,rx:5,fill:C.body,stroke:wf.s,'stroke-width':1.3}));
+
+  // Header bar
+  g.appendChild(N('rect',{x:t.x,y:t.y,width:TW,height:HEADER,rx:5,fill:wf.h,stroke:wf.s,'stroke-width':1.3}));
+  // Square off bottom corners of header
+  g.appendChild(N('rect',{x:t.x,y:t.y+HEADER-5,width:TW,height:5,fill:wf.h}));
+
+  // Header label
+  const ht=N('text',{x:t.x+TW/2, y:t.y+HEADER/2+1,
+    'text-anchor':'middle','dominant-baseline':'middle',
+    fill:wf.t, style:'font-size:11px;font-family:Syne,sans-serif;font-weight:700;letter-spacing:.3px;'});
+  ht.textContent=t.label;
+  g.appendChild(ht);
+
+  // Header left accent bar
+  g.appendChild(N('rect',{x:t.x,y:t.y,width:3,height:HEADER,rx:5,fill:wf.s}));
+
+  // Divider line
+  g.appendChild(N('line',{x1:t.x,y1:t.y+HEADER,x2:t.x+TW,y2:t.y+HEADER,stroke:wf.s,'stroke-width':0.8}));
+
+  // Fields
+  t.fields.forEach((f,i)=>{
+    const fy=t.y+HEADER+PAD+i*FH+FH/2;
+    const rowBg=(i%2===0)?'rgba(255,255,255,0.012)':'rgba(0,0,0,0)';
+    g.appendChild(N('rect',{x:t.x+1,y:t.y+HEADER+PAD+i*FH,width:TW-2,height:FH,fill:rowBg}));
+
+    // PK/FK indicator
+    if(f.pk){
+      const pk=N('circle',{cx:t.x+10,cy:fy,r:4,fill:'#0a1520',stroke:'#3d7fff','stroke-width':1.2});
+      g.appendChild(pk);
+      const pkt=N('text',{x:t.x+10,y:fy,'text-anchor':'middle','dominant-baseline':'middle',
+        fill:'#3d7fff',style:'font-size:6px;font-family:DM Mono,monospace;font-weight:700;'});
+      pkt.textContent='PK'; g.appendChild(pkt);
+    } else if(f.fk){
+      g.appendChild(N('rect',{x:t.x+5,y:fy-4,width:11,height:8,rx:1,fill:'#0d1824',stroke:C.wf2s,'stroke-width':1}));
+      const fkt=N('text',{x:t.x+10,y:fy,'text-anchor':'middle','dominant-baseline':'middle',
+        fill:C.wf2t,style:'font-size:5.5px;font-family:DM Mono,monospace;font-weight:700;'});
+      fkt.textContent='FK'; g.appendChild(fkt);
+    } else {
+      g.appendChild(N('rect',{x:t.x+7,y:fy-2,width:4,height:4,rx:1,fill:'#1a2a3a'}));
+    }
+
+    // Field name
+    const nameColor=f.pk?'#d4a843':f.fk?'#8ab0d0':C.ft;
+    const fn2=N('text',{x:t.x+22,y:fy,'dominant-baseline':'middle',
+      fill:nameColor,style:`font-size:9px;font-family:DM Mono,monospace;font-weight:${f.pk||f.fk?'500':'400'};`});
+    fn2.textContent=(f.nullable?'○ ':'')+f.name;
+    g.appendChild(fn2);
+
+    // Type annotation
+    const tn=N('text',{x:t.x+TW-5,y:fy,'text-anchor':'end','dominant-baseline':'middle',
+      fill:C.type,style:'font-size:8px;font-family:DM Mono,monospace;'});
+    tn.textContent=f.type;
+    g.appendChild(tn);
+  });
+
+  svg.appendChild(g);
+}
+
+// ── Relationship routing ─────────────────────────────
+function midpoint(a,b){return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};}
+
+function bestPorts(a,b){
+  // Returns {ax,ay,bx,by} — best exit/entry points
+  const dx=b.cx-a.cx, dy=b.cy-a.cy;
+  let ax,ay,bx,by;
+  if(Math.abs(dx)>Math.abs(dy)){
+    ax=dx>0?a.x+a.w:a.x; ay=a.cy;
+    bx=dx>0?b.x:b.x+b.w; by=b.cy;
+  } else {
+    ax=a.cx; ay=dy>0?a.y+a.h:a.y;
+    bx=b.cx; by=dy>0?b.y:b.y+b.h;
+  }
+  return {ax,ay,bx,by};
+}
+
+function drawRel(svg,rel){
+  const ta=TABLES.find(t=>t.id===rel.from);
+  const tb=TABLES.find(t=>t.id===rel.to);
+  if(!ta||!tb) return;
+  const a=tbox(ta), b=tbox(tb);
+  const {ax,ay,bx,by}=bestPorts(a,b);
+
+  // Elbow routing — one bend
+  const mx=(ax+bx)/2;
+  let d;
+  if(Math.abs(ax-bx)<20){
+    d=`M${ax},${ay} L${bx},${by}`;
+  } else {
+    d=`M${ax},${ay} C${ax+(bx-ax)*0.5},${ay} ${ax+(bx-ax)*0.5},${by} ${bx},${by}`;
+  }
+
+  const lineColor=rel.soft?'#1e2840':'#1e3a5f';
+  const dashArray=rel.soft?'6,4':'none';
+
+  const defs=svg.querySelector('defs')||svg.insertBefore(N('defs',{}),svg.firstChild);
+  const mId='arrowRel';
+  if(!svg.querySelector('#'+mId)){
+    const m=N('marker',{id:mId,markerWidth:'8',markerHeight:'6',refX:'7',refY:'3',orient:'auto'});
+    m.appendChild(N('polygon',{points:'0 0,8 3,0 6',fill:'#1e3a5f'}));
+    defs.appendChild(m);
+  }
+  const mIds='arrowSoft';
+  if(!svg.querySelector('#'+mIds)){
+    const ms=N('marker',{id:mIds,markerWidth:'8',markerHeight:'6',refX:'7',refY:'3',orient:'auto'});
+    ms.appendChild(N('polygon',{points:'0 0,8 3,0 6',fill:'#1e2840'}));
+    defs.appendChild(ms);
+  }
+
+  const path=N('path',{d,fill:'none',stroke:lineColor,'stroke-width':1.1,
+    'stroke-dasharray':dashArray,
+    'marker-end':`url(#${rel.soft?mIds:mId})`});
+  svg.insertBefore(path,svg.firstChild.nextSibling); // behind tables
+
+  // Label at midpoint
+  if(rel.label){
+    const lx=(ax+bx)/2, ly=(ay+by)/2-6;
+    const lt=N('text',{x:lx,y:ly,'text-anchor':'middle',fill:'#1e3a58',
+      style:'font-size:7.5px;font-family:DM Mono,monospace;'});
+    lt.textContent=rel.label;
+    svg.insertBefore(lt,svg.firstChild.nextSibling);
+  }
+}
+
+// ── Build diagram ────────────────────────────────────
+function build(){
+  const svg=document.getElementById('canvas');
+
+  // Add defs for arrowheads first
+  const defs=N('defs',{});
+  svg.appendChild(defs);
+
+  // Compute total bounds
+  let maxX=0,maxY=0;
+  TABLES.forEach(t=>{
+    const h=tableHeight(t);
+    maxX=Math.max(maxX,t.x+TW+40);
+    maxY=Math.max(maxY,t.y+h+40);
+  });
+  svg.setAttribute('width',maxX);
+  svg.setAttribute('height',maxY);
+
+  // Relationships first (drawn behind tables)
+  RELS.forEach(r=>drawRel(svg,r));
+
+  // Tables on top
+  TABLES.forEach(t=>drawTable(svg,t));
+}
+
+// ── Pan & Zoom ───────────────────────────────────────
+let scale=1, tx=0, ty=0;
+let dragging=false, lastX=0, lastY=0;
+
+function applyTransform(){
+  document.getElementById('canvas').style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
+}
+
+function resetView(){
+  const vc=document.getElementById('vc');
+  const svg=document.getElementById('canvas');
+  const vw=vc.clientWidth, vh=vc.clientHeight;
+  const sw=parseFloat(svg.getAttribute('width')||1400);
+  const sh=parseFloat(svg.getAttribute('height')||1000);
+  scale=Math.min((vw-40)/sw,(vh-40)/sh,1);
+  tx=20; ty=20;
+  applyTransform();
+}
+
+function zoomBy(f){
+  scale*=f;
+  applyTransform();
+}
+
+const vc=document.getElementById('vc');
+vc.addEventListener('mousedown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;vc.classList.add('dragging');});
+window.addEventListener('mouseup',()=>{dragging=false;vc.classList.remove('dragging');});
+window.addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  tx+=e.clientX-lastX; ty+=e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+  applyTransform();
+});
+vc.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.1:0.9;
+  const rect=vc.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  tx=mx-(mx-tx)*f; ty=my-(my-ty)*f;
+  scale*=f;
+  applyTransform();
+},{passive:false});
+
+window.addEventListener('load',()=>{
+  build();
+  setTimeout(resetView,50);
+});
+</script>
+</body>
+</html>

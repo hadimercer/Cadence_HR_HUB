@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — BPMN Process Diagrams</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+:root{
+  --bg:#090d13;--surface:#0e1520;--surface2:#131c28;--border:#1a2535;
+  --accent:#3d7fff;--accent2:#6c4fff;--gold:#d4a843;--green:#2ecc7a;
+  --red:#e05252;--text:#c8daf0;--muted:#4a6278;--dim:#1e3048;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Syne',system-ui,sans-serif;display:flex;height:100vh;overflow:hidden;}
+
+#sb{width:270px;min-width:270px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sb-head{padding:16px 14px 12px;border-bottom:1px solid var(--border);}
+.logo{font-size:18px;font-weight:800;background:linear-gradient(135deg,#3d7fff,#6c4fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sb-sub{font-size:8.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace;}
+.sb-nav{flex:1;overflow-y:auto;padding:8px 0;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:var(--border);}
+.wfl{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);padding:10px 14px 4px;font-family:'DM Mono',monospace;}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;border-left:3px solid transparent;transition:all .1s;}
+.ni:hover{background:var(--surface2);}
+.ni.active{background:rgba(61,127,255,.08);border-left-color:var(--accent);}
+.nb{font-size:7.5px;font-weight:700;font-family:'DM Mono',monospace;padding:2px 5px;border-radius:3px;flex-shrink:0;}
+.nb-a{background:rgba(224,82,82,.12);color:var(--red);}
+.nb-t{background:rgba(46,204,122,.11);color:var(--green);}
+.nt{font-size:11px;font-weight:600;flex:1;line-height:1.3;}
+.ni.active .nt{color:var(--accent);}
+.sb-foot{padding:10px 14px;border-top:1px solid var(--border);}
+.conn{font-size:9px;font-family:'DM Mono',monospace;color:var(--muted);line-height:1.7;}
+.cp{display:inline-block;background:rgba(212,168,67,.1);color:var(--gold);padding:1px 5px;border-radius:2px;font-size:8px;font-weight:700;margin:1px;}
+
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#hdr{height:50px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:10px;flex-shrink:0;}
+.hid{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);background:rgba(61,127,255,.1);padding:3px 8px;border-radius:3px;}
+.htitle{font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.htype{font-size:8.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'DM Mono',monospace;}
+.ht-a{color:var(--red);}
+.ht-t{color:var(--green);}
+.hreqs{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);white-space:nowrap;}
+.ctrls{display:flex;gap:4px;margin-left:6px;}
+.cb{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace;}
+.cb:hover{border-color:var(--accent);color:var(--accent);}
+
+#vc{flex:1;position:relative;overflow:hidden;background:var(--bg);}
+.dc{position:absolute;inset:0;display:none;overflow:auto;}
+.dc.vis{display:block;}
+
+#leg{position:absolute;bottom:12px;right:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;z-index:20;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);}
+.lt{font-weight:700;color:var(--text);font-size:8px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.lr{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.ls{width:20px;height:14px;flex-shrink:0;}
+
+#dep{position:absolute;top:12px;right:12px;background:rgba(61,127,255,.07);border:1px solid rgba(61,127,255,.18);border-radius:6px;padding:9px 12px;z-index:20;font-family:'DM Mono',monospace;font-size:9px;max-width:220px;display:none;}
+.dt{font-weight:700;color:var(--accent);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
+.dd{color:var(--muted);line-height:1.6;}
+.dl{color:var(--gold);font-weight:700;}
+</style>
+</head>
+<body>
+
+<div id="sb">
+  <div class="sb-head">
+    <div class="logo">Cadence</div>
+    <div class="sb-sub">BPMN Diagrams · S1 Portfolio</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="wfl">WF1 — Headcount Reporting</div>
+    <div class="ni active" onclick="show('wf1a',this)"><span class="nb nb-a">AS-IS</span><span class="nt">Manual CSV Reporting</span></div>
+    <div class="ni" onclick="show('wf1t',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Automated Pipeline</span></div>
+    <div class="wfl">WF4 — Performance Management</div>
+    <div class="ni" onclick="show('wf4a',this)"><span class="nb nb-a">AS-IS</span><span class="nt">Undocumented Reviews</span></div>
+    <div class="ni" onclick="show('wf4w',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Weekly 1:1 Capture</span></div>
+    <div class="ni" onclick="show('wf4m',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Monthly Check-in</span></div>
+    <div class="ni" onclick="show('wf4q',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Quarterly Review ⟶ WF2</span></div>
+    <div class="wfl">WF2 — Compensation Review</div>
+    <div class="ni" onclick="show('wf2a',this)"><span class="nb nb-a">AS-IS</span><span class="nt">Spreadsheet Merit Cycle</span></div>
+    <div class="ni" onclick="show('wf2t',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Eligibility Engine</span></div>
+    <div class="wfl">WF3 — Attrition Risk Scoring</div>
+    <div class="ni" onclick="show('wf3a',this)"><span class="nb nb-a">AS-IS</span><span class="nt">Reactive Resignation Response</span></div>
+    <div class="ni" onclick="show('wf3t',this)"><span class="nb nb-t">TO-BE</span><span class="nt">Proactive Scoring Engine</span></div>
+  </nav>
+  <div class="sb-foot">
+    <div class="conn">Cross-workflow feeds:<br>
+      <span class="cp">WF1→WF2</span><span class="cp">WF4→WF2</span><span class="cp">WF1→WF3</span><span class="cp">WF2→WF3</span><span class="cp">WF4→WF3</span>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="hdr">
+    <span class="hid" id="hid">WF1-01</span>
+    <span class="htitle" id="htitle">WF1 As-Is — Manual Headcount Reporting</span>
+    <span class="htype ht-a" id="htype">AS-IS</span>
+    <span class="hreqs" id="hreqs">Baseline context for WF1 requirements</span>
+    <div class="ctrls">
+      <button class="cb" onclick="zoomFit()">Fit</button>
+      <button class="cb" onclick="zoomBy(1.2)">+</button>
+      <button class="cb" onclick="zoomBy(0.8)">−</button>
+    </div>
+  </div>
+  <div id="vc">
+    <div class="dc vis" id="c-wf1a"></div>
+    <div class="dc" id="c-wf1t"></div>
+    <div class="dc" id="c-wf4a"></div>
+    <div class="dc" id="c-wf4w"></div>
+    <div class="dc" id="c-wf4m"></div>
+    <div class="dc" id="c-wf4q"></div>
+    <div class="dc" id="c-wf2a"></div>
+    <div class="dc" id="c-wf2t"></div>
+    <div class="dc" id="c-wf3a"></div>
+    <div class="dc" id="c-wf3t"></div>
+
+    <div id="leg">
+      <div class="lt">Notation</div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 14"><circle cx="7" cy="7" r="5.5" fill="#0a1520" stroke="#3d7fff" stroke-width="1.5"/><text x="18" y="10" font-size="8" fill="#4a6278" font-family="monospace">Start</text></svg></div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 14"><circle cx="7" cy="7" r="5.5" fill="#0a1520" stroke="#3d7fff" stroke-width="3"/><text x="18" y="10" font-size="8" fill="#4a6278" font-family="monospace">End</text></svg></div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 14"><polygon points="7,1 13,7 7,13 1,7" fill="#0a1520" stroke="#d4a843" stroke-width="1.5"/><text x="18" y="10" font-size="8" fill="#4a6278" font-family="monospace">Gate</text></svg></div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 14"><rect x="1" y="2" width="12" height="10" rx="2" fill="#0d1824" stroke="#1e3a5f" stroke-width="1.2"/><text x="18" y="10" font-size="8" fill="#4a6278" font-family="monospace">Task</text></svg></div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 14"><rect x="1" y="2" width="12" height="10" rx="2" fill="#0b1525" stroke="#3050aa" stroke-width="1.2"/><text x="7" y="10" font-size="8" fill="#3050aa" text-anchor="middle" font-family="monospace">+</text><text x="18" y="10" font-size="8" fill="#4a6278" font-family="monospace">Sub</text></svg></div>
+      <div class="lr"><svg class="ls" viewBox="0 0 20 8"><line x1="0" y1="4" x2="14" y2="4" stroke="#2a5090" stroke-width="1" stroke-dasharray="4,3"/><text x="18" y="7" font-size="8" fill="#4a6278" font-family="monospace">Msg</text></svg></div>
+    </div>
+    <div id="dep">
+      <div class="dt">Data Dependency</div>
+      <div class="dd" id="deptext"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// PURE SVG BPMN RENDERER — zero external dependencies
+// ═══════════════════════════════════════════════════
+
+const BG='#090d13', POOL_H='#0c1828', POOL_S='#1a2e48';
+const TASK_F='#0d1824', TASK_S='#1e3a5f';
+const EVT_F='#0a1520', EVT_S='#3d7fff';
+const GW_F='#0d1824', GW_S='#c49a30';
+const SUB_F='#0b1525', SUB_S='#3050aa';
+const FLOW='#1e3a58', MSG='#1e4080';
+const TXT='#b0c8e0', LABEL='#5a7a96', SMALL='#3a5870';
+const RED='#a03030', AMB='#a07020', GRN='#207850';
+const TIMER='#4080c0';
+
+function N(tag,a){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v]of Object.entries(a)) el.setAttribute(k,v);
+  return el;
+}
+
+function mkSVG(w,h){
+  const s=N('svg',{width:w,height:h,viewBox:`0 0 ${w} ${h}`,xmlns:'http://www.w3.org/2000/svg'});
+  s.style.background=BG; s.style.display='block';
+  // defs
+  const d=N('defs',{});
+  const m1=N('marker',{id:'ah',markerWidth:'8',markerHeight:'6',refX:'7',refY:'3',orient:'auto'});
+  m1.appendChild(N('polygon',{points:'0 0,8 3,0 6',fill:FLOW}));
+  d.appendChild(m1);
+  const m2=N('marker',{id:'ahm',markerWidth:'8',markerHeight:'6',refX:'7',refY:'3',orient:'auto'});
+  m2.appendChild(N('polygon',{points:'0 0,8 3,0 6',fill:MSG}));
+  d.appendChild(m2);
+  s.appendChild(d);
+  return s;
+}
+
+// Pool band (horizontal label on left)
+function pool(s,x,y,w,h,label){
+  s.appendChild(N('rect',{x,y,width:w,height:h,rx:4,fill:POOL_H,stroke:POOL_S,'stroke-width':1.2}));
+  s.appendChild(N('rect',{x,y,width:28,height:h,rx:4,fill:POOL_H,stroke:POOL_S,'stroke-width':1}));
+  const t=N('text',{x:x+14,y:y+h/2,'text-anchor':'middle','dominant-baseline':'middle',
+    fill:LABEL,transform:`rotate(-90,${x+14},${y+h/2})`,
+    style:'font-size:10px;font-family:Syne,sans-serif;font-weight:600;letter-spacing:.5px;'});
+  t.textContent=label; s.appendChild(t);
+}
+
+// Horizontal lane divider inside pool
+function lane(s,x,y,w,label){
+  s.appendChild(N('line',{x1:x+28,y1:y,x2:x+w,y2:y,stroke:POOL_S,'stroke-width':.7}));
+  if(label){
+    const t=N('text',{x:x+42,y:y+30,'text-anchor':'middle','dominant-baseline':'middle',
+      fill:SMALL,style:'font-size:8px;font-family:DM Mono,monospace;'});
+    t.textContent=label; s.appendChild(t);
+  }
+}
+
+function txt(s,x,y,str,{fill=TXT,size=9.5,w=0,anchor='middle',bold=false}={}){
+  const lines=w>0?wrap(str,w,size):[str];
+  const lh=size*1.38;
+  const sy=y-((lines.length-1)*lh)/2;
+  lines.forEach((l,i)=>{
+    const t=N('text',{x,y:sy+i*lh,'text-anchor':anchor,'dominant-baseline':'middle',
+      fill,style:`font-size:${size}px;font-family:Syne,sans-serif;font-weight:${bold?700:'normal'};`});
+    t.textContent=l; s.appendChild(t);
+  });
+}
+
+function wrap(str,maxW,size){
+  const cw=size*.56, cpp=Math.floor(maxW/cw);
+  const words=str.split(' '), lines=[];
+  let cur='';
+  for(const w of words){
+    if((cur+' '+w).trim().length<=cpp) cur=(cur+' '+w).trim();
+    else{if(cur)lines.push(cur);cur=w;}
+  }
+  if(cur)lines.push(cur);
+  return lines.length?lines:[''];
+}
+
+function task(s,x,y,w,h,label,{fill=TASK_F,stroke=TASK_S}={}){
+  s.appendChild(N('rect',{x:x-w/2,y:y-h/2,width:w,height:h,rx:3,fill,stroke,'stroke-width':1.2}));
+  txt(s,x,y,label,{w:w-10,size:9});
+}
+
+function sub(s,x,y,w,h,label){
+  s.appendChild(N('rect',{x:x-w/2,y:y-h/2,width:w,height:h,rx:3,fill:SUB_F,stroke:SUB_S,'stroke-width':1.2}));
+  s.appendChild(N('rect',{x:x-8,y:y+h/2-13,width:16,height:11,rx:2,fill:SUB_F,stroke:SUB_S,'stroke-width':.9}));
+  const pt=N('text',{x,y:y+h/2-7,'text-anchor':'middle','dominant-baseline':'middle',
+    fill:SUB_S,style:'font-size:9px;font-family:Syne,sans-serif;font-weight:700;'});
+  pt.textContent='+'; s.appendChild(pt);
+  txt(s,x,y,label,{w:w-12,size:9});
+}
+
+function start(s,x,y,label='',timer=false){
+  s.appendChild(N('circle',{cx:x,cy:y,r:11,fill:EVT_F,stroke:timer?TIMER:EVT_S,'stroke-width':1.5}));
+  if(timer){
+    s.appendChild(N('circle',{cx:x,cy:y,r:7,fill:'none',stroke:TIMER,'stroke-width':.9}));
+    s.appendChild(N('line',{x1:x,y1:y,x2:x,y2:y-5,stroke:TIMER,'stroke-width':1.2}));
+    s.appendChild(N('line',{x1:x,y1:y,x2:x+4,y2:y,stroke:TIMER,'stroke-width':1.2}));
+  }
+  if(label) txt(s,x,y+18,label,{fill:LABEL,size:8,w:80});
+}
+
+function end(s,x,y,label='',error=false){
+  s.appendChild(N('circle',{cx:x,cy:y,r:11,fill:EVT_F,stroke:EVT_S,'stroke-width':3}));
+  if(error){
+    const bolt=N('path',{d:`M${x-3},${y+4}L${x+1},${y-1}L${x-1},${y-1}L${x+3},${y-5}L${x-1},${y-1}L${x+1},${y-1}Z`,
+      fill:RED});
+    s.appendChild(bolt);
+  }
+  if(label) txt(s,x,y+18,label,{fill:LABEL,size:8,w:90});
+}
+
+function gw(s,x,y,size=16,label=''){
+  s.appendChild(N('polygon',{points:`${x},${y-size} ${x+size},${y} ${x},${y+size} ${x-size},${y}`,
+    fill:GW_F,stroke:GW_S,'stroke-width':1.5}));
+  if(label) txt(s,x,y+size+10,label,{fill:LABEL,size:8,w:90});
+}
+
+// Sequence flow: array of [x,y] waypoints
+function seq(s,pts,lbl='',lx=0,ly=0){
+  const d=pts.map((p,i)=>(i===0?'M':'L')+p[0]+','+p[1]).join(' ');
+  s.appendChild(N('path',{d,fill:'none',stroke:FLOW,'stroke-width':1.3,'marker-end':'url(#ah)'}));
+  if(lbl) txt(s,lx,ly,lbl,{fill:LABEL,size:8.5});
+}
+
+// Message flow dashed
+function msg(s,pts,lbl='',lx=0,ly=0){
+  const d=pts.map((p,i)=>(i===0?'M':'L')+p[0]+','+p[1]).join(' ');
+  s.appendChild(N('path',{d,fill:'none',stroke:MSG,'stroke-width':1.1,'stroke-dasharray':'6,4','marker-end':'url(#ahm)'}));
+  if(lbl) txt(s,lx,ly,lbl,{fill:MSG,size:8,w:120});
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 1: WF1 As-Is
+// ══════════════════════════════════════
+function D_wf1a(){
+  const W=1100,H=560; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,175,'HR Analyst');
+  pool(s,20,215,W-40,150,'HRIS System');
+  pool(s,20,385,W-40,155,'Finance / Budget');
+
+  const ay=107;
+  start(s,65,ay,'Month-end arrives');
+  task(s,185,ay,140,46,'Log into HRIS & run headcount report');
+  task(s,345,ay,120,46,'Download CSV to local drive');
+  task(s,490,ay,130,46,'Clean & reformat data in Excel');
+  task(s,650,ay,140,46,'Cross-reference vs. approved budget');
+  gw(s,790,ay,15,'Budget file in?');
+  task(s,880,ay-55,120,40,'Chase Finance via email');
+  task(s,880,ay+55,130,40,'Calculate KPIs manually in Excel');
+  task(s,1030,ay+55,110,40,'Format report in PowerPoint');
+  end(s,1060,ay,'Report emailed\n(4–6 day cycle)');
+
+  seq(s,[[76,ay],[115,ay]]);
+  seq(s,[[255,ay],[285,ay]]);
+  seq(s,[[405,ay],[425,ay]]);
+  seq(s,[[555,ay],[580,ay]]);
+  seq(s,[[720,ay],[775,ay]]);
+  seq(s,[[790,ay-15],[790,ay-55],[840,ay-55]],'No',800,ay-64);
+  seq(s,[[806,ay],[806,ay+55],[815,ay+55]],'Yes',812,ay+18);
+  seq(s,[[960,ay+55],[975,ay+55]]);
+  seq(s,[[840,ay-55],[950,ay-55],[950,ay+35]]);
+  seq(s,[[1085,ay+55],[1085,ay-10],[1048,ay-10]]);
+
+  const hy=290;
+  task(s,200,hy,160,44,'Provide HRIS data extract on request');
+  msg(s,[[200,hy-22],[200,215],[68,215],[68,ay+11]],'CSV export',100,218);
+
+  const fy=462;
+  start(s,75,fy,'Email request received');
+  task(s,240,fy,170,44,'Locate budget file & reply (1–3 day delay)');
+  end(s,380,fy,'Budget file sent via email');
+  seq(s,[[86,fy],[155,fy]]);
+  seq(s,[[325,fy],[369,fy]]);
+  msg(s,[[880,ay-55-20],[880,385],[87,385],[87,fy-11]],'Chase email',100,388);
+  msg(s,[[240,fy-22],[240,340],[880,340],[880,ay+75]],'Budget file reply',500,336);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 2: WF1 To-Be
+// ══════════════════════════════════════
+function D_wf1t(){
+  const W=1160,H=520; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,195,'HR Analyst');
+  pool(s,20,235,W-40,265,'Cadence System');
+
+  const ay=117;
+  start(s,65,ay,'Upload CSV via Streamlit');
+  task(s,200,ay,155,46,'Review KPI dashboard & anomaly flags');
+  task(s,385,ay,130,46,'Investigate variance; add analyst note');
+  gw(s,510,ay,15,'Anomaly needing investigation?');
+  task(s,640,ay,130,46,'Approve report for distribution');
+  task(s,800,ay,130,46,'Download PDF / Excel report');
+  end(s,930,ay,'Report distributed\n(~15 minutes)');
+
+  seq(s,[[76,ay],[122,ay]]);
+  seq(s,[[277,ay],[320,ay]]);
+  seq(s,[[450,ay],[495,ay]]);
+  seq(s,[[510,ay-15],[510,ay-55],[575,ay-55]],'Yes',525,ay-64);
+  seq(s,[[526,ay],[575,ay]],'No',545,ay-10);
+  seq(s,[[575,ay-55],[640,ay-55],[640,ay-23]]);
+  seq(s,[[705,ay],[735,ay]]);
+  seq(s,[[865,ay],[919,ay]]);
+
+  const sy=360;
+  start(s,65,sy,'CSV received (trigger)',true);
+  sub(s,220,sy,160,56,'Schema Validation Subprocess');
+  gw(s,355,sy,15,'Valid?');
+  task(s,355,sy+70,160,40,'Return validation error to analyst');
+  end(s,355,sy+120,11,'Upload rejected',true);
+  sub(s,530,sy,175,56,'KPI Calculation Engine\n(5 KPI formulas)');
+  task(s,715,sy,155,46,'Evaluate thresholds; set anomaly flags');
+  task(s,895,sy,155,46,'Publish dashboard with timestamp');
+  task(s,1075,sy,120,46,'Write to PostgreSQL\n(feeds WF2 + WF3)');
+  end(s,1130,sy,'Data live');
+
+  seq(s,[[76,sy],[140,sy]]);
+  seq(s,[[300,sy],[340,sy]]);
+  seq(s,[[355,sy-15],[355,sy-50],[440,sy-50]],'Yes',375,sy-60);
+  seq(s,[[371,sy],[440,sy]]);
+  seq(s,[[617,sy],[637,sy]]);
+  seq(s,[[792,sy],[812,sy]]);
+  seq(s,[[972,sy],[1015,sy]]);
+  seq(s,[[1135,sy],[1119,sy]]);
+  seq(s,[[355,sy+15],[355,sy+50]],'No',366,sy+32);
+  seq(s,[[355,sy+90],[355,sy+109]]);
+
+  msg(s,[[200,ay+23],[200,235],[68,235],[68,sy-11]],'CSV upload',100,238);
+  msg(s,[[895,sy-23],[895,235],[200,235],[200,ay+23]],'Dashboard ready',500,232);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 3: WF4 As-Is
+// ══════════════════════════════════════
+function D_wf4a(){
+  const W=1080,H=620; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,175,'Employee');
+  pool(s,20,215,W-40,175,'Manager');
+  pool(s,20,410,W-40,185,'HR');
+
+  const ey=107;
+  start(s,65,ey,'Week begins');
+  task(s,200,ey,160,46,'Prepare topics mentally (no structure)');
+  task(s,380,ey,140,46,'Attend 1:1 (if scheduled & not cancelled)');
+  gw(s,515,ey,15,'1:1 occurred?');
+  task(s,515,ey-60,150,40,'Nothing documented — week passes');
+  task(s,670,ey,145,46,'Wait for quarterly cycle to open');
+  task(s,840,ey,155,46,'Write self-assessment from memory — no data');
+  end(s,975,ey,'Self-assessment submitted');
+
+  seq(s,[[76,ey],[120,ey]]);
+  seq(s,[[280,ey],[310,ey]]);
+  seq(s,[[450,ey],[500,ey]]);
+  seq(s,[[515,ey-15],[515,ey-60]],'No',524,ey-35);
+  seq(s,[[531,ey],[597,ey]],'Yes',550,ey-10);
+  seq(s,[[590,ey-60],[670,ey-60],[670,ey-23]]);
+  seq(s,[[742,ey],[762,ey]]);
+  seq(s,[[917,ey],[964,ey]]);
+
+  const my=302;
+  start(s,65,my,'Quarterly review period opens');
+  task(s,215,my,170,46,'Recall performance from memory (no data)');
+  task(s,400,my,145,46,'Review scattered notes (email, Teams, paper)');
+  task(s,565,my,150,46,'Write review manually in Excel / Word');
+  task(s,735,my,130,46,'Assign rating — no audit trail');
+  task(s,890,my,110,46,'Email rating to HR');
+  end(s,1005,my,'Rating submitted\n(no traceability)');
+
+  seq(s,[[76,my],[130,my]]);
+  seq(s,[[300,my],[322,my]]);
+  seq(s,[[477,my],[490,my]]);
+  seq(s,[[640,my],[670,my]]);
+  seq(s,[[800,my],[835,my]]);
+  seq(s,[[945,my],[994,my]]);
+
+  const hy=502;
+  start(s,65,hy,'Rating emails arrive');
+  task(s,210,hy,175,46,'Manually collate ratings from email inbox');
+  task(s,400,hy,150,46,'Re-key ratings into merit spreadsheet');
+  gw(s,535,hy,15,'Missing submissions?');
+  task(s,535,hy+65,160,40,'Chase managers individually by email');
+  task(s,700,hy,155,46,'Use collated ratings to open merit cycle');
+  end(s,850,hy,'Merit cycle begins\n(weeks of delay)');
+
+  seq(s,[[76,hy],[122,hy]]);
+  seq(s,[[297,hy],[325,hy]]);
+  seq(s,[[475,hy],[520,hy]]);
+  seq(s,[[535,hy+15],[535,hy+45]],'Yes',545,hy+30);
+  seq(s,[[551,hy],[622,hy]],'No',578,hy-10);
+  seq(s,[[615,hy+65],[700,hy+65],[700,hy+23]]);
+  seq(s,[[777,hy],[839,hy]]);
+
+  msg(s,[[890,my+23],[890,410],[68,410],[68,hy-11]],'Rating email',200,413);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 4: WF4 To-Be Weekly
+// ══════════════════════════════════════
+function D_wf4w(){
+  const W=1040,H=600; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,170,'Employee');
+  pool(s,20,210,W-40,185,'Manager');
+  pool(s,20,415,W-40,160,'Cadence System');
+
+  const ey=105;
+  start(s,65,ey,'Weekly 1:1 record auto-created');
+  task(s,225,ey,175,46,'Add discussion topics to record during the week');
+  task(s,420,ey,160,46,'Flag blockers needing manager attention');
+  task(s,590,ey,155,46,'Attend 1:1 — topics visible to manager');
+  end(s,720,ey,'Topics submitted\nto record');
+
+  seq(s,[[76,ey],[137,ey]]);
+  seq(s,[[312,ey],[340,ey]]);
+  seq(s,[[500,ey],[512,ey]]);
+  seq(s,[[667,ey],[709,ey]]);
+
+  const my=302;
+  start(s,65,my,'Record created (system trigger)');
+  task(s,215,my,170,46,'Review employee topics before meeting');
+  task(s,405,my,175,46,'Conduct 1:1; record actions & sentiment flag');
+  gw(s,565,my,15,'Closed within period?');
+  task(s,685,my,130,46,'Close record — status COMPLETE');
+  end(s,820,my,'Record COMPLETE → feeds quarterly');
+  end(s,685,my+75,11,'Record MISSED → WF3 risk flag',true);
+
+  seq(s,[[76,my],[130,my]]);
+  seq(s,[[300,my],[317,my]]);
+  seq(s,[[492,my],[550,my]]);
+  seq(s,[[581,my],[620,my]],'Yes',595,my-10);
+  seq(s,[[750,my],[809,my]]);
+  seq(s,[[565,my+15],[565,my+75],[674,my+75]],'No (14-day timer)',575,my+62);
+
+  const sy=495;
+  start(s,65,sy,'Monday 09:00 (automated)',true);
+  task(s,225,sy,185,46,'Create weekly 1:1 record for each manager-direct pair');
+  task(s,430,sy,165,46,'Send notification to employee & manager');
+  sub(s,625,sy,185,52,'14-Day Missed 1:1 Monitor Subprocess');
+  end(s,770,sy,'Monitoring active');
+
+  seq(s,[[76,sy],[132,sy]]);
+  seq(s,[[317,sy],[347,sy]]);
+  seq(s,[[512,sy],[532,sy]]);
+  seq(s,[[717,sy],[759,sy]]);
+
+  msg(s,[[225,sy-23],[225,415],[68,415],[68,210],[68,my-11]],'Record created',80,350);
+  msg(s,[[225,sy-23],[225,415],[68,415],[68,105],[68,ey-11]],'Notification',80,390);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 5: WF4 To-Be Monthly
+// ══════════════════════════════════════
+function D_wf4m(){
+  const W=1100,H=620; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,170,'Manager');
+  pool(s,20,210,W-40,170,'Employee');
+  pool(s,20,400,W-40,195,'Cadence System / HR');
+
+  const my=105;
+  start(s,65,my,'End of month (system prompt)');
+  task(s,225,my,175,46,'Open monthly check-in form for each direct report');
+  task(s,425,my,190,46,'Complete: development, goals, wellbeing, blockers');
+  task(s,630,my,130,46,'Submit check-in record');
+  end(s,760,my,'Check-in submitted');
+
+  seq(s,[[76,my],[137,my]]);
+  seq(s,[[312,my],[330,my]]);
+  seq(s,[[520,my],[565,my]]);
+  seq(s,[[695,my],[749,my]]);
+
+  const ey=295;
+  start(s,65,ey,'Check-in notification received');
+  task(s,225,ey,175,46,"Review manager's check-in summary");
+  gw(s,380,ey,15,'Agree with summary?');
+  task(s,380,ey+70,165,40,'Add disagreement comment to record');
+  task(s,550,ey,140,46,'Acknowledge check-in');
+  end(s,680,ey,'Check-in CLOSED');
+
+  seq(s,[[76,ey],[137,ey]]);
+  seq(s,[[312,ey],[365,ey]]);
+  seq(s,[[380,ey+15],[380,ey+50]],'No',390,ey+32);
+  seq(s,[[396,ey],[480,ey]],'Yes',430,ey-10);
+  seq(s,[[463,ey+70],[550,ey+70],[550,ey+23]]);
+  seq(s,[[620,ey],[669,ey]]);
+
+  const sy=497;
+  start(s,65,sy,'Month-end (automated)',true);
+  task(s,225,sy,175,46,'Send check-in prompt to all managers');
+  task(s,420,sy,180,46,'Monitor submission vs 7-day deadline');
+  gw(s,575,sy,15,'All submitted by day 7?');
+  task(s,575,sy+70,175,40,'Flag non-compliant managers on HR dashboard');
+  task(s,755,sy,175,46,'Update compliance dashboard (completion rate %)');
+  task(s,950,sy,155,46,'Feed check-in data to quarterly aggregate');
+  end(s,1070,sy,'Monthly cycle complete');
+
+  seq(s,[[76,sy],[137,sy]]);
+  seq(s,[[312,sy],[330,sy]]);
+  seq(s,[[510,sy],[560,sy]]);
+  seq(s,[[575,sy-15],[575,sy-50],[667,sy-50]],'Yes',598,sy-60);
+  seq(s,[[591,sy],[667,sy]]);
+  seq(s,[[575,sy+15],[575,sy+50]],'No',585,sy+32);
+  seq(s,[[662,sy+70],[755,sy+70],[755,sy+23]]);
+  seq(s,[[842,sy],[867,sy]]);
+  seq(s,[[1027,sy],[1059,sy]]);
+
+  msg(s,[[225,sy-23],[225,400],[68,400],[68,my-11]],'Month-end prompt',100,403);
+  msg(s,[[630,my+23],[630,210],[68,210],[68,ey-11]],'Submission notification',200,213);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 6: WF4 To-Be Quarterly
+// ══════════════════════════════════════
+function D_wf4q(){
+  const W=1240,H=700; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,145,'Employee');
+  pool(s,20,185,W-40,145,'Manager');
+  pool(s,20,350,W-40,240,'HR');
+  pool(s,20,610,W-40,70,'WF2 — Compensation Review Engine');
+
+  const ey=92;
+  start(s,65,ey,'Q-end: self-assessment opens');
+  task(s,235,ey,195,46,'Complete structured self-assessment (4 dimensions)');
+  task(s,455,ey,130,46,'Submit self-assessment');
+  end(s,575,ey,'Self-assessment submitted');
+  seq(s,[[76,ey],[137,ey]]); seq(s,[[332,ey],[390,ey]]); seq(s,[[520,ey],[564,ey]]);
+
+  const mmy=257;
+  start(s,65,mmy,'Pre-populated review form arrives');
+  task(s,240,mmy,205,46,'Review pre-populated summary (aggregated weekly + monthly data)');
+  task(s,465,mmy,155,46,'Add qualitative context & refine');
+  task(s,640,mmy,155,46,'Assign formal rating across 4 dimensions');
+  task(s,820,mmy,140,46,'Submit to HR review queue');
+  end(s,945,mmy,'Rating submitted with full audit trail');
+  seq(s,[[76,mmy],[137,mmy]]); seq(s,[[342,mmy],[387,mmy]]); seq(s,[[542,mmy],[562,mmy]]); seq(s,[[717,mmy],[750,mmy]]); seq(s,[[890,mmy],[934,mmy]]);
+
+  const hry=470;
+  start(s,65,hry,'Q-end cycle opens (timer)',true);
+  sub(s,240,hry,195,56,'Pre-Population Subprocess\n(aggregate weekly + monthly)');
+  task(s,460,hry,180,52,'Review submission queue; validate rating calibration');
+  gw(s,620,hry,16,'Rating approved?');
+  task(s,620,hry+80,165,40,'Return to manager with calibration note');
+  task(s,795,hry,165,52,'Finalise rating; close review record with audit trail');
+  gw(s,945,hry,16,'Merit cycle open?');
+  task(s,1070,hry-65,175,46,'Throw rating to WF2 eligibility engine');
+  task(s,1070,hry+65,175,46,'Store rating; queue for next merit cycle');
+  end(s,1175,hry-65,'Rating live in WF2');
+  end(s,1175,hry+65,'Rating stored — queued');
+
+  seq(s,[[76,hry],[142,hry]]); seq(s,[[337,hry],[370,hry]]); seq(s,[[550,hry],[604,hry]]);
+  seq(s,[[620,hry-16],[620,hry-60],[712,hry-60]],'No',630,hry-70);
+  seq(s,[[636,hry],[712,hry]],'Yes',660,hry-10);
+  seq(s,[[620,hry+16],[620,hry+60]]); seq(s,[[702,hry+80],[795,hry+80],[795,hry+26]]);
+  seq(s,[[877,hry],[929,hry]]);
+  seq(s,[[945,hry-16],[945,hry-65],[982,hry-65]],'Yes',952,hry-75);
+  seq(s,[[945,hry+16],[945,hry+65],[982,hry+65]],'No',952,hry+78);
+  seq(s,[[1157,hry-65],[1164,hry-65]]); seq(s,[[1157,hry+65],[1164,hry+65]]);
+
+  const wy=645;
+  start(s,145,wy,'Rating message received');
+  task(s,335,wy,210,40,'Trigger eligibility engine for employee (WF2 To-Be)');
+  end(s,490,wy,'Eligibility determination begins');
+  seq(s,[[156,wy],[230,wy]]); seq(s,[[440,wy],[479,wy]]);
+
+  // THE CENTREPIECE — WF4→WF2 Message Flow Gateway
+  msg(s,[[1070,hry-41],[1070,610],[157,610],[157,wy-11]],'WF4→WF2: Rating + Performance Data',500,606);
+  msg(s,[[240,hry-28],[240,350],[68,350],[68,mmy-11]],'Pre-populated form',100,353);
+  msg(s,[[455,ey+23],[455,185],[68,185],[68,mmy-11]],'Self-assessment',200,188);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 7: WF2 As-Is
+// ══════════════════════════════════════
+function D_wf2a(){
+  const W=1180,H=620; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,200,'HR Analyst');
+  pool(s,20,240,W-40,155,'Manager');
+  pool(s,20,415,W-40,170,'Finance / CHRO');
+
+  const ay=120;
+  start(s,60,ay,'Comp cycle launch date');
+  task(s,190,ay,150,46,'Pull headcount from HRIS manually');
+  task(s,360,ay,155,46,'Cross-reference performance ratings from email');
+  task(s,545,ay,170,46,'Apply eligibility rules manually in Excel');
+  task(s,735,ay,155,46,'Calculate budget pool by dept (manual formulas)');
+  task(s,915,ay,155,46,'Build manager input file from scratch');
+  task(s,1090,ay,100,46,'Email input files to managers');
+
+  const ay2=195;
+  task(s,1090,ay2,100,44,'Collate manager returns; re-key into master');
+  gw(s,970,ay2,15,'Budget overspend?');
+  task(s,840,ay2,130,40,'Manually adjust recommendations');
+  task(s,680,ay2,130,46,'Submit to CHRO for approval');
+  end(s,558,ay2,'Cycle complete\n(3–4 weeks elapsed)');
+
+  seq(s,[[71,ay],[115,ay]]); seq(s,[[265,ay],[282,ay]]); seq(s,[[437,ay],[457,ay]]);
+  seq(s,[[630,ay],[657,ay]]); seq(s,[[812,ay],[837,ay]]); seq(s,[[992,ay],[1040,ay]]);
+  seq(s,[[1090,ay+23],[1090,ay2-22]]);
+  seq(s,[[1040,ay2],[986,ay2]]);
+  seq(s,[[970,ay2-15],[970,ay2-50],[905,ay2-50]],'Yes',972,ay2-60);
+  seq(s,[[954,ay2],[905,ay2]],'No',925,ay2-10);
+  seq(s,[[905,ay2-50],[840,ay2-50],[840,ay2-20]]);
+  seq(s,[[775,ay2],[712,ay2]]); seq(s,[[615,ay2],[569,ay2]]);
+
+  const mmy=317;
+  start(s,1090,mmy,'Input file email received');
+  task(s,935,mmy,165,46,'Open attachment; fill in merit % recommendations');
+  task(s,755,mmy,165,46,'Reply with completed file (no system visibility)');
+  end(s,632,mmy,'File returned via email');
+  seq(s,[[1079,mmy],[1017,mmy]]); seq(s,[[852,mmy],[838,mmy]]); seq(s,[[672,mmy],[643,mmy]]);
+
+  const fy=500;
+  start(s,684,fy,'Approval request received');
+  task(s,855,fy,185,46,'Review total budget spend vs plan');
+  end(s,995,fy,'Approval given / returned for rework');
+  seq(s,[[695,fy],[762,fy]]); seq(s,[[947,fy],[984,fy]]);
+
+  msg(s,[[1090,ay+23],[1090,240],[1090,mmy-11]],'Input file email',1093,243);
+  msg(s,[[632,mmy+11],[632,330],[632,ay2+22]],'Completed file email',635,333);
+  msg(s,[[680,ay2+23],[680,415],[695,415],[695,fy-11]],'Approval request',698,418);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 8: WF2 To-Be
+// ══════════════════════════════════════
+function D_wf2t(){
+  const W=1280,H=680; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,270,'Cadence System');
+  pool(s,20,310,W-40,160,'Manager');
+  pool(s,20,490,W-40,165,'HR / Finance');
+
+  // Row 1 — System
+  const sy=130;
+  start(s,65,sy,'Merit cycle open / WF4 rating received',true);
+  sub(s,280,sy,260,58,'Eligibility Engine\n(6 Sequential Criteria Gates)');
+  task(s,575,sy,200,52,'Calculate dept budget pool allocations (compa-ratio weighted)');
+  task(s,790,sy,200,52,'Generate pre-populated manager input file (eligible employees only)');
+  task(s,1005,sy,165,52,'Publish input file to manager dashboard');
+
+  seq(s,[[76,sy],[150,sy]]); seq(s,[[410,sy],[475,sy]]); seq(s,[[675,sy],[690,sy]]); seq(s,[[890,sy],[922,sy]]); seq(s,[[1087,sy],[1087,sy+22]]);
+
+  const sy2=235;
+  task(s,1005,sy2,165,48,'Validate manager recommendations vs budget');
+  gw(s,850,sy2,16,'Budget breached?');
+  task(s,850,sy2+75,165,40,'Flag overage to HR; show excess amount');
+  task(s,670,sy2,185,52,'Finalise recommendations; generate audit trail');
+  task(s,460,sy2,165,48,'Send employee outcome notifications');
+  end(s,328,sy2,'Cycle complete — all outcomes recorded');
+
+  seq(s,[[1005,sy2-24],[1005,sy2-24]]);
+  seq(s,[[922,sy2],[866,sy2]]); 
+  seq(s,[[850,sy2-16],[850,sy2-55],[932,sy2-55]],'Yes',853,sy2-64);
+  seq(s,[[834,sy2],[757,sy2]],'No',790,sy2-10);
+  seq(s,[[850,sy2+16],[850,sy2+55]]);
+  seq(s,[[767,sy2+75],[670,sy2+75],[670,sy2+26]]);
+  seq(s,[[577,sy2],[542,sy2]]); seq(s,[[377,sy2],[339,sy2]]);
+
+  // Manager
+  const mmy=390;
+  start(s,1005,mmy,'Input file notification received');
+  task(s,820,mmy,190,46,'Review pre-populated eligible list & budget summary');
+  task(s,610,mmy,190,46,'Enter merit recommendation % per employee');
+  task(s,390,mmy,205,46,'Submit recommendations (real-time budget tracker visible)');
+  end(s,248,mmy,'Recommendations submitted');
+
+  seq(s,[[994,mmy],[915,mmy]]); seq(s,[[725,mmy],[705,mmy]]); seq(s,[[515,mmy],[492,mmy]]); seq(s,[[287,mmy],[259,mmy]]);
+
+  // HR/Finance
+  const hy=572;
+  start(s,1005,hy,'CHRO approval queue updated');
+  task(s,810,hy,200,52,'Review total spend, distributions & equity flags');
+  gw(s,660,hy,16,'Approved?');
+  task(s,660,hy+80,165,40,'Return to HR with escalation note');
+  end(s,516,hy,'Approved — payroll instructions processed');
+  end(s,516,hy+80,'Returned for revision');
+
+  seq(s,[[994,hy],[910,hy]]); seq(s,[[710,hy],[676,hy]]);
+  seq(s,[[644,hy],[532,hy]],'Yes',585,hy-10);
+  seq(s,[[660,hy+16],[660,hy+60]],'No',668,hy+38);
+  seq(s,[[577,hy+80],[527,hy+80]]);
+
+  msg(s,[[1005,sy+26],[1005,310],[1005,mmy-11]],'Input file notification',1007,313);
+  msg(s,[[390,mmy+23],[390,310],[390,sy2-24],[850,sy2-24],[1005,sy2-24]],'Recommendations',600,306);
+  msg(s,[[670,sy2+26],[670,490],[1005,490],[1005,hy-11]],'Approval queue update',750,493);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 9: WF3 As-Is
+// ══════════════════════════════════════
+function D_wf3a(){
+  const W=1050,H=555; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,155,'Employee');
+  pool(s,20,195,W-40,160,'Manager');
+  pool(s,20,375,W-40,155,'HR Business Partner');
+
+  const ey=97;
+  start(s,65,ey,'Employee reaches resignation decision');
+  task(s,265,ey,235,46,'Signals accumulated (pay, growth, engagement) — no intervention received');
+  task(s,510,ey,165,46,'Submits resignation to manager');
+  end(s,640,ey,'Resignation submitted');
+  seq(s,[[76,ey],[147,ey]]); seq(s,[[382,ey],[427,ey]]); seq(s,[[592,ey],[629,ey]]);
+
+  const my=275;
+  start(s,65,my,'Resignation received (surprise)');
+  task(s,240,my,210,46,'No prior signals identified — no structured risk data available');
+  task(s,460,my,185,46,'Conduct exit conversation (often too late to retain)');
+  task(s,665,my,165,46,'Notify HR to begin offboarding process');
+  end(s,800,my,'Offboarding initiated');
+  seq(s,[[76,my],[135,my]]); seq(s,[[345,my],[367,my]]); seq(s,[[552,my],[582,my]]); seq(s,[[747,my],[789,my]]);
+
+  const hy=452;
+  start(s,65,hy,'Offboarding notification received');
+  task(s,245,hy,190,46,'Conduct exit interview (voluntary disclosure only)');
+  task(s,450,hy,155,46,'Record exit reason in HRIS manually');
+  task(s,640,hy,205,46,'Analyse — no structured data; retrospective only');
+  gw(s,810,hy,15,'Patterns identified?');
+  task(s,900,hy-65,170,40,'Surface insights to leadership (anecdotal)');
+  task(s,900,hy+65,155,40,'No action — insufficient data');
+  end(s,1015,hy-65,'Insight shared\n(rarely actioned)');
+  end(s,1015,hy+65,'Case closed —\nno learning captured');
+
+  seq(s,[[76,hy],[150,hy]]); seq(s,[[340,hy],[372,hy]]); seq(s,[[527,hy],[562,hy]]); seq(s,[[742,hy],[795,hy]]);
+  seq(s,[[810,hy-15],[810,hy-65],[826,hy-65]],'Yes',812,hy-75);
+  seq(s,[[826,hy],[826,hy+65]],'No',830,hy+28);
+  seq(s,[[985,hy-65],[1004,hy-65]]); seq(s,[[985,hy+65],[1004,hy+65]]);
+
+  msg(s,[[510,ey+23],[510,195],[68,195],[68,my-11]],'Resignation',100,198);
+  msg(s,[[665,my+23],[665,375],[68,375],[68,hy-11]],'Offboarding notification',100,378);
+  return s;
+}
+
+// ══════════════════════════════════════
+// DIAGRAM 10: WF3 To-Be
+// ══════════════════════════════════════
+function D_wf3t(){
+  const W=1280,H=680; const s=mkSVG(W,H);
+  pool(s,20,20,W-40,280,'Cadence System (Daily Automated Run)');
+  pool(s,20,320,W-40,165,'HR Business Partner');
+  pool(s,20,505,W-40,150,'Manager');
+
+  // Factor annotation
+  const facts=['F1: Pay Risk — compa-ratio vs market (WF1 + WF2 + S2)','F2: Tenure Risk — proximity to exit tenure bands',
+    'F3: Promotion Recency — months since last promotion','F4: Check-in Frequency — missed 1:1 rate (WF4)',
+    'F5: Performance Trend — QoQ rating direction (WF4)','F6: Voluntary Flight Risk Flag (manager-set)',
+    'F7: Role Below Market — S2 benchmark cross-reference'];
+  facts.forEach((f,i)=>txt(s,175,60+i*17,f,{fill:SMALL,size:8,anchor:'middle'}));
+
+  // System row
+  const sy=170;
+  start(s,65,sy,'Daily 02:00 timer',true);
+  sub(s,310,sy,270,58,'7-Factor Risk Scoring Subprocess\n(reads risk_factor_config table)');
+  task(s,590,sy,200,52,'Calculate composite weighted risk score per employee');
+  gw(s,760,sy,18,'RAG Classification');
+
+  // Three branches
+  task(s,890,sy-90,210,46,'RED ≥70: Surface to HRBP dashboard with contributing factors');
+  task(s,890,sy,210,46,'AMBER 40–69: Update risk register; notify HRBP');
+  task(s,890,sy+90,210,46,'GREEN <40: Update risk register; no further action');
+
+  task(s,1120,sy,185,52,'Update ranked risk register in PostgreSQL');
+  end(s,1240,sy,'Risk register current');
+
+  seq(s,[[76,sy],[170,sy]]); seq(s,[[445,sy],[490,sy]]); seq(s,[[690,sy],[742,sy]]);
+  seq(s,[[760,sy-18],[760,sy-90],[785,sy-90]],'≥70',762,sy-100);
+  seq(s,[[778,sy],[785,sy]],'40–69',762,sy-10);
+  seq(s,[[760,sy+18],[760,sy+90],[785,sy+90]],'<40',762,sy+103);
+  seq(s,[[995,sy-90],[1120,sy-90],[1120,sy-26]]);
+  seq(s,[[995,sy],[1120,sy],[1120,sy-26]]);
+  seq(s,[[995,sy+90],[1120,sy+90],[1120,sy+26]]);
+  seq(s,[[1212,sy],[1229,sy]]);
+
+  // HR lane
+  const hy=402;
+  start(s,890,hy,'RED flag notification received');
+  task(s,700,hy,195,52,'Open employee risk profile (factors, scores, trends)');
+  task(s,480,hy,200,52,'Determine retention intervention strategy');
+  task(s,255,hy,210,52,'Assign manager action or escalate to CHRO');
+  end(s,110,hy,'Retention action initiated');
+
+  seq(s,[[879,hy],[797,hy]]); seq(s,[[602,hy],[580,hy]]); seq(s,[[380,hy],[360,hy]]); seq(s,[[150,hy],[121,hy]]);
+
+  // Manager lane
+  const mry=580;
+  start(s,255,mry,'Action assigned by HRBP');
+  task(s,450,mry,200,46,'Review employee risk profile and contributing factors');
+  task(s,665,mry,205,46,'Set voluntary flight risk flag (if warranted)');
+  task(s,890,mry,220,46,'Take retention action: career conversation, pay review, or role change');
+  end(s,1050,mry,'Action logged — feeds next scoring run');
+
+  seq(s,[[266,mry],[350,mry]]); seq(s,[[550,mry],[562,mry]]); seq(s,[[767,mry],[779,mry]]); seq(s,[[1000,mry],[1039,mry]]);
+
+  msg(s,[[890,sy-90+23],[890,320],[890,hy-11]],'RED alert notification',893,323);
+  msg(s,[[255,hy+26],[255,505],[266,505],[266,mry-11]],'Manager action assigned',258,508);
+  return s;
+}
+
+// ═══════════════════════════════════════
+// METADATA & VIEWER
+// ═══════════════════════════════════════
+const DIAGRAMS={
+  wf1a:{id:'WF1-01',title:'WF1 As-Is — Manual Headcount Reporting',type:'as-is',reqs:'Baseline context for WF1-FR-001 — WF1-FR-017',deps:'',fn:D_wf1a},
+  wf1t:{id:'WF1-02',title:'WF1 To-Be — Automated Reporting Pipeline',type:'to-be',reqs:'WF1-FR-001 — WF1-FR-017',deps:'Feeds <span class="dl">WF2</span> (headcount & eligibility) and <span class="dl">WF3</span> (compa-ratio, tenure, span of control).',fn:D_wf1t},
+  wf4a:{id:'WF4-01',title:'WF4 As-Is — Undocumented Performance Management',type:'as-is',reqs:'Baseline context for WF4-FR-001 — WF4-FR-016',deps:'',fn:D_wf4a},
+  wf4w:{id:'WF4-02',title:'WF4 To-Be (Weekly) — Structured 1:1 Capture',type:'to-be',reqs:'WF4-FR-001 — WF4-FR-004',deps:'Missed 1:1 flag feeds <span class="dl">WF3</span> check-in frequency risk factor.',fn:D_wf4w},
+  wf4m:{id:'WF4-03',title:'WF4 To-Be (Monthly) — Check-in Tracking & Compliance',type:'to-be',reqs:'WF4-FR-005 — WF4-FR-007',deps:'Check-in completion rate feeds <span class="dl">WF3</span> engagement risk factor.',fn:D_wf4m},
+  wf4q:{id:'WF4-04',title:'WF4 To-Be (Quarterly) — Review Cycle + WF4→WF2 Gateway',type:'to-be',reqs:'WF4-FR-008 — WF4-FR-016',deps:'Formal rating triggers <span class="dl">WF2</span> via Message Flow gateway (BPMN centrepiece). Performance trend independently feeds <span class="dl">WF3</span>.',fn:D_wf4q},
+  wf2a:{id:'WF2-01',title:'WF2 As-Is — Manual Merit Spreadsheet Process',type:'as-is',reqs:'Baseline context for WF2-FR-001 — WF2-FR-015',deps:'',fn:D_wf2a},
+  wf2t:{id:'WF2-02',title:'WF2 To-Be — Automated Eligibility & Budget Engine',type:'to-be',reqs:'WF2-FR-001 — WF2-FR-015',deps:'Receives ratings from <span class="dl">WF4</span> and headcount from <span class="dl">WF1</span>. Outputs pay position data to <span class="dl">WF3</span>.',fn:D_wf2t},
+  wf3a:{id:'WF3-01',title:'WF3 As-Is — Reactive Attrition Identification',type:'as-is',reqs:'Baseline context for WF3-FR-001 — WF3-FR-011',deps:'',fn:D_wf3a},
+  wf3t:{id:'WF3-02',title:'WF3 To-Be — Proactive Attrition Risk Scoring Engine',type:'to-be',reqs:'WF3-FR-001 — WF3-FR-011',deps:'Consumes <span class="dl">WF1</span> headcount, <span class="dl">WF2</span> pay position, <span class="dl">WF4</span> check-in & performance data. Cross-references <span class="dl">S2</span> market benchmarks.',fn:D_wf3t},
+};
+
+const rendered={};
+let current='wf1a', zoom=1;
+
+function render(key){
+  if(rendered[key]) return;
+  const svg=DIAGRAMS[key].fn();
+  document.getElementById('c-'+key).appendChild(svg);
+  rendered[key]=true;
+}
+
+function updateHeader(key){
+  const d=DIAGRAMS[key];
+  document.getElementById('hid').textContent=d.id;
+  document.getElementById('htitle').textContent=d.title;
+  const ht=document.getElementById('htype');
+  ht.textContent=d.type==='as-is'?'AS-IS':'TO-BE';
+  ht.className='htype '+(d.type==='as-is'?'ht-a':'ht-t');
+  document.getElementById('hreqs').textContent=d.reqs;
+  const dep=document.getElementById('dep');
+  if(d.deps){dep.style.display='block';document.getElementById('deptext').innerHTML=d.deps;}
+  else dep.style.display='none';
+}
+
+function show(key,el){
+  if(key===current) return;
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('c-'+current).classList.remove('vis');
+  document.getElementById('c-'+key).classList.add('vis');
+  current=key; zoom=1;
+  render(key);
+  updateHeader(key);
+  setTimeout(zoomFit,30);
+}
+
+function zoomFit(){
+  const c=document.getElementById('c-'+current);
+  const svg=c.querySelector('svg');
+  if(!svg) return;
+  const vw=c.clientWidth,vh=c.clientHeight;
+  const sw=parseFloat(svg.getAttribute('width')),sh=parseFloat(svg.getAttribute('height'));
+  zoom=Math.min((vw-32)/sw,(vh-32)/sh,1);
+  applyZoom(svg);
+}
+
+function zoomBy(f){
+  const svg=document.getElementById('c-'+current).querySelector('svg');
+  if(!svg) return;
+  zoom*=f; applyZoom(svg);
+}
+
+function applyZoom(svg){
+  svg.style.transform=`scale(${zoom})`;
+  svg.style.transformOrigin='top left';
+  svg.style.margin='16px';
+}
+
+// Boot
+window.addEventListener('load',()=>{
+  render('wf1a');
+  updateHeader('wf1a');
+  setTimeout(zoomFit,50);
+});
+</script>
+</body>
+</html>
