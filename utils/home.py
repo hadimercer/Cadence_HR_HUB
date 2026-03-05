@@ -9,38 +9,17 @@ from utils.db import query_df
 def render_home():
     # ── Queries ────────────────────────────────────────────────────────────────
     try:
-        _periods = query_df("""
-            SELECT DISTINCT reporting_period
-            FROM headcount_snapshots
-            ORDER BY reporting_period DESC
-            LIMIT 2
-        """)
-        current_period = _periods.iloc[0]["reporting_period"] if len(_periods) > 0 else None
-        prev_period    = _periods.iloc[1]["reporting_period"] if len(_periods) > 1 else None
-    except Exception:
-        current_period = None
-        prev_period    = None
-
-    try:
         wf_curr = query_df("""
             SELECT
                 COUNT(*) FILTER (WHERE status = 'ACTIVE')  AS active_count,
                 COUNT(*) FILTER (WHERE status = 'LEAVER')  AS leaver_count,
-                SUM(budgeted_headcount) FILTER (WHERE status = 'ACTIVE') AS total_budget
+                SUM(budgeted_headcount::numeric)
+                    FILTER (WHERE status = 'ACTIVE') AS total_budget
             FROM headcount_snapshots
-            WHERE reporting_period = %s
-        """, (current_period,)) if current_period else pd.DataFrame()
+            WHERE reporting_period = date_trunc('month', CURRENT_DATE)::date
+        """)
     except Exception:
         wf_curr = pd.DataFrame()
-
-    try:
-        wf_prev = query_df("""
-            SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE') AS active_count
-            FROM headcount_snapshots
-            WHERE reporting_period = %s
-        """, (prev_period,)) if prev_period else pd.DataFrame()
-    except Exception:
-        wf_prev = pd.DataFrame()
 
     try:
         _today      = datetime.date.today()
@@ -99,7 +78,7 @@ def render_home():
 
     try:
         eligibility_df = query_df("""
-            SELECT COUNT(*) FILTER (WHERE effective_determination = 'ELIGIBLE') AS eligible,
+            SELECT COUNT(*) FILTER (WHERE me.determination = 'ELIGIBLE') AS eligible,
                    COUNT(*) AS total
             FROM merit_eligibility me
             JOIN merit_cycles mc ON mc.id = me.cycle_id
@@ -121,26 +100,15 @@ def render_home():
 
     try:
         risk_today = query_df("""
-            SELECT rag_status, COUNT(*) AS count, AVG(composite_score) AS avg_score
+            SELECT rag_status,
+                   COUNT(*) AS cnt,
+                   AVG(composite_score)::numeric AS avg_score
             FROM attrition_risk_scores
             WHERE calculation_date = (SELECT MAX(calculation_date) FROM attrition_risk_scores)
             GROUP BY rag_status
         """)
     except Exception:
         risk_today = pd.DataFrame()
-
-    try:
-        risk_yesterday = query_df("""
-            SELECT rag_status, COUNT(*) AS count, AVG(composite_score) AS avg_score
-            FROM attrition_risk_scores
-            WHERE calculation_date = (
-                SELECT MAX(calculation_date) FROM attrition_risk_scores
-                WHERE calculation_date < (
-                    SELECT MAX(calculation_date) FROM attrition_risk_scores))
-            GROUP BY rag_status
-        """)
-    except Exception:
-        risk_yesterday = pd.DataFrame()
 
     def _val(df, col, default="—"):
         try:
@@ -160,7 +128,7 @@ def render_home():
     def _rag_count(df, rag):
         try:
             row = df[df["rag_status"] == rag]
-            return int(row.iloc[0]["count"]) if len(row) > 0 else 0
+            return int(row.iloc[0]["cnt"]) if len(row) > 0 else 0
         except Exception:
             return 0
 
@@ -181,7 +149,7 @@ def render_home():
             _total_wf   = _active + _leavers
             _atr        = round(_leavers / _total_wf * 100, 1) if _total_wf > 0 else 0
             atr_str     = str(_atr) + "%"
-            _budget     = float(_val(wf_curr, "total_budget", 0))
+            _budget     = float(str(_val(wf_curr, "total_budget", 0)))
             _pct_bud    = round(_active / _budget * 100, 0) if _budget > 0 else 0
             _bud_delta  = _pct_bud - 100
             if _budget == 0:
@@ -325,8 +293,13 @@ def render_home():
         try:
             red_curr = _rag_count(risk_today, "RED")
             amb_curr = _rag_count(risk_today, "AMBER")
-            avg_curr = risk_today["avg_score"].mean()
-            avg_str  = str(round(float(avg_curr), 1))
+            # Weighted average across all scored employees
+            _total_cnt = risk_today["cnt"].astype(float).sum()
+            if _total_cnt > 0:
+                _wavg = (risk_today["avg_score"].astype(float) * risk_today["cnt"].astype(float)).sum() / _total_cnt
+                avg_str = str(round(float(_wavg), 1))
+            else:
+                avg_str = "—"
         except Exception:
             red_curr = "—"
             amb_curr = "—"
