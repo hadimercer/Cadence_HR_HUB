@@ -391,5 +391,6 @@ All 45 functional requirements are implemented in version 1.
 
 ## Contact
 
-**Hadi Mercer** — Business Analyst Portfolio 2026
-[github.com/hadimercer](https://github.com/hadimercer)
+**Hadi Mercer**  
+LinkedIn: [linkedin.com/in/hadimercer](https://linkedin.com/in/hadimercer)  
+GitHub: [github.com/hadimercer](https://github.com/hadimercer)
