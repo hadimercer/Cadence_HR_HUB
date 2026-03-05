@@ -21,7 +21,7 @@ FACTOR_ORDER = [
     "COMPA_RATIO",
     "RATING_TRAJECTORY",
     "TIME_SINCE_MERIT",
-    "TIME_IN_ROLE",
+    "TENURE_IN_ROLE",
     "SENTIMENT_TREND",
     "CHECKIN_FREQUENCY",
     "FLIGHT_RISK_ROLE",
@@ -42,7 +42,7 @@ FACTOR_SOURCE = {
     "COMPA_RATIO":       ("WF2", GOLD),
     "RATING_TRAJECTORY": ("WF4", GREEN),
     "TIME_SINCE_MERIT":  ("WF2", GOLD),
-    "TIME_IN_ROLE":      ("WF1", ACCENT),
+    "TENURE_IN_ROLE":    ("WF1", ACCENT),
     "SENTIMENT_TREND":   ("WF4", GREEN),
     "CHECKIN_FREQUENCY": ("WF4", GREEN),
     "FLIGHT_RISK_ROLE":  ("CONFIG", MUTED),
@@ -146,7 +146,7 @@ with tab_cfg:
     else:
         # Build lookup dict: factor_code → DataFrame row
         config_dict = {
-            str(row["factor_code"]): row
+            str(row["factor_code"]).upper(): row
             for _, row in config_df.iterrows()
         }
 
@@ -258,7 +258,7 @@ with tab_cfg:
             "COMPA_RATIO":       "Pay Position (Compa-ratio)",
             "RATING_TRAJECTORY": "Performance Trend",
             "TIME_SINCE_MERIT":  "Time Since Merit Increase",
-            "TIME_IN_ROLE":      "Time in Role",
+            "TENURE_IN_ROLE":    "Tenure in Role",
             "SENTIMENT_TREND":   "1:1 Sentiment Trend",
             "CHECKIN_FREQUENCY": "Check-in Frequency",
             "FLIGHT_RISK_ROLE":  "Flight Risk Role",
@@ -359,7 +359,7 @@ with tab_cfg:
                             new_tmed,
                             new_thigh,
                             _SYSTEM_USER,
-                            fc,
+                            fc.lower(),
                         ),
                     )
 
