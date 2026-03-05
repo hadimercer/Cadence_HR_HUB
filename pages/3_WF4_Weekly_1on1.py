@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import date, timedelta
 from utils.db import query_df, run_mutation
 
@@ -226,7 +227,8 @@ with tab_history:
 
     # ── Alert: employees with no COMPLETED 1:1 in the last 14 calendar days ──
     overdue_df = query_df(
-        "SELECT hs.first_name || ' ' || hs.last_name AS employee_name "
+        "SELECT hs.employee_id, "
+        "hs.first_name || ' ' || hs.last_name AS employee_name "
         "FROM headcount_snapshots hs "
         "WHERE hs.reporting_period = "
         "  (SELECT MAX(reporting_period) FROM headcount_snapshots) "
@@ -240,16 +242,168 @@ with tab_history:
         "ORDER BY employee_name"
     )
 
+    # ── Bubble: count only ────────────────────────────────────────────────────
     if not overdue_df.empty:
-        names_list = ", ".join(overdue_df["employee_name"].tolist())
         st.warning(
-            f"\u26a0\ufe0f **{len(overdue_df)} employee(s) have no completed 1:1 "
-            f"in the last 14 days:** {names_list}"
+            f"\u26a0\ufe0f **{len(overdue_df)} employee(s)** have no completed 1:1 "
+            f"in the last 14 days."
         )
     else:
         st.success(
             "\u2713 All active employees have a completed 1:1 within the last 14 days."
         )
+
+    # ── Alert detail table ────────────────────────────────────────────────────
+    if not overdue_df.empty:
+        overdue_ids = overdue_df["employee_id"].tolist()
+
+        # Manager name + total missed count per overdue employee
+        alert_detail_df = query_df(
+            "SELECT hs.employee_id, "
+            "hs.first_name || ' ' || hs.last_name AS employee_name, "
+            "COALESCE(u.full_name, 'Unassigned') AS manager_name, "
+            "COALESCE(missed_ct.cnt, 0) AS total_missed "
+            "FROM headcount_snapshots hs "
+            "LEFT JOIN LATERAL ( "
+            "  SELECT o.manager_id FROM one_on_ones o "
+            "  WHERE o.employee_id = hs.employee_id "
+            "  ORDER BY o.week_start_date DESC LIMIT 1 "
+            ") latest ON true "
+            "LEFT JOIN users u ON u.id = latest.manager_id "
+            "LEFT JOIN LATERAL ( "
+            "  SELECT COUNT(*) AS cnt FROM one_on_ones o "
+            "  WHERE o.employee_id = hs.employee_id AND o.status = 'MISSED' "
+            ") missed_ct ON true "
+            "WHERE hs.reporting_period = "
+            "  (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+            "AND hs.status = 'ACTIVE' "
+            "AND hs.employee_id NOT IN ( "
+            "  SELECT DISTINCT employee_id FROM one_on_ones "
+            "  WHERE status = 'COMPLETED' "
+            "  AND week_start_date >= CURRENT_DATE - INTERVAL '14 days' "
+            ") "
+            "ORDER BY employee_name"
+        )
+
+        if not alert_detail_df.empty:
+            # Fetch ordered statuses to compute consecutive missed streak in Python
+            ph = ",".join(["%s"] * len(overdue_ids))
+            streak_df = query_df(
+                f"SELECT employee_id, status FROM one_on_ones "
+                f"WHERE employee_id IN ({ph}) "
+                f"ORDER BY employee_id, week_start_date DESC",
+                tuple(overdue_ids),
+            )
+
+            def _consecutive_missed(emp_id):
+                rows = streak_df[streak_df["employee_id"] == emp_id]["status"].tolist()
+                count = 0
+                for s in rows:
+                    if s == "MISSED":
+                        count += 1
+                    else:
+                        break
+                return count
+
+            alert_detail_df["consecutive_missed"] = (
+                alert_detail_df["employee_id"].apply(_consecutive_missed)
+            )
+
+            display_alert = alert_detail_df[
+                ["employee_name", "manager_name", "consecutive_missed", "total_missed"]
+            ].rename(columns={
+                "employee_name":     "Employee",
+                "manager_name":      "Manager",
+                "consecutive_missed": "Successive Missed",
+                "total_missed":      "Total Missed",
+            })
+
+            st.dataframe(display_alert, use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # ── Missed 1:1 History — by month by manager (stacked bar) ───────────────
+    st.subheader("Missed 1:1 History — By Month & Manager")
+
+    missed_hist_df = query_df(
+        "SELECT "
+        "  TO_CHAR(DATE_TRUNC('month', o.week_start_date), 'Mon YYYY') AS month_label, "
+        "  DATE_TRUNC('month', o.week_start_date) AS month_date, "
+        "  COALESCE(u.full_name, 'Unknown') AS manager_name, "
+        "  COUNT(*) AS missed_count "
+        "FROM one_on_ones o "
+        "JOIN users u ON u.id = o.manager_id "
+        "WHERE o.status = 'MISSED' "
+        "GROUP BY DATE_TRUNC('month', o.week_start_date), u.full_name "
+        "ORDER BY month_date, manager_name"
+    )
+
+    if missed_hist_df.empty:
+        st.info("\u2139\ufe0f No missed 1:1 records found to chart.")
+    else:
+        missed_hist_df["month_date"] = pd.to_datetime(missed_hist_df["month_date"])
+        month_order = (
+            missed_hist_df.sort_values("month_date")["month_label"].unique().tolist()
+        )
+        managers = sorted(missed_hist_df["manager_name"].unique().tolist())
+
+        _MANAGER_COLORS = [
+            "#4DB6AC", "#FF7043", "#8E44AD", "#F39C12",
+            "#2E86C1", "#27AE60", "#E74C3C", "#D4A843",
+        ]
+        _ST_TEXT = "#FAFAFA"
+
+        fig_missed = go.Figure()
+        for i, mgr in enumerate(managers):
+            mgr_data = missed_hist_df[missed_hist_df["manager_name"] == mgr]
+            mgr_map = dict(zip(mgr_data["month_label"], mgr_data["missed_count"]))
+            y_vals = [int(mgr_map.get(m, 0)) for m in month_order]
+            fig_missed.add_trace(go.Bar(
+                name=mgr,
+                x=month_order,
+                y=y_vals,
+                marker_color=_MANAGER_COLORS[i % len(_MANAGER_COLORS)],
+            ))
+
+        fig_missed.update_layout(
+            barmode="stack",
+            title=dict(
+                text="<b>Missed 1:1s by Month & Manager</b>",
+                font=dict(size=14, color=_ST_TEXT, family="Arial"),
+                x=0.5, xanchor="center", pad=dict(b=10),
+            ),
+            xaxis=dict(
+                title=dict(text="Month", font=dict(color=_ST_TEXT, size=12)),
+                tickfont=dict(color=_ST_TEXT, size=11),
+                showgrid=False,
+                linecolor="rgba(255,255,255,0.35)", linewidth=1,
+            ),
+            yaxis=dict(
+                title=dict(text="Missed 1:1s", font=dict(color=_ST_TEXT, size=12)),
+                tickfont=dict(color=_ST_TEXT, size=11),
+                gridcolor="rgba(255,255,255,0.08)", gridwidth=1,
+                linecolor="rgba(255,255,255,0.35)",
+                dtick=1,
+            ),
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.04,
+                xanchor="center", x=0.5,
+                font=dict(color=_ST_TEXT, size=11),
+                bgcolor="rgba(255,255,255,0.06)",
+                bordercolor="rgba(255,255,255,0.15)", borderwidth=1,
+            ),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            height=380,
+            margin=dict(t=95, b=55, l=65, r=30),
+            font=dict(family="Arial, sans-serif", color=_ST_TEXT),
+            hoverlabel=dict(
+                bgcolor="#1E2530",
+                font_color=_ST_TEXT,
+                bordercolor="rgba(255,255,255,0.2)",
+            ),
+        )
+        st.plotly_chart(fig_missed, use_container_width=True, key="chart_missed_by_month")
 
     st.divider()
     st.subheader("Last 8 Weeks — 1:1 Records")
