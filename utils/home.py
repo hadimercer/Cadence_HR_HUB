@@ -100,16 +100,21 @@ def render_home():
 
     try:
         risk_today = query_df("""
-            SELECT rag_status,
+            SELECT latest.rag_status,
                    COUNT(*) AS cnt,
-                   AVG(composite_score)::numeric AS avg_score
+                   AVG(latest.composite_score)::numeric AS avg_score
             FROM (
                 SELECT DISTINCT ON (employee_id)
                     employee_id, rag_status, composite_score
                 FROM attrition_risk_scores
                 ORDER BY employee_id, calculation_date DESC
             ) latest
-            GROUP BY rag_status
+            JOIN headcount_snapshots h
+              ON h.employee_id = latest.employee_id
+             AND h.reporting_period = (
+                 SELECT MAX(reporting_period) FROM headcount_snapshots
+             )
+            GROUP BY latest.rag_status
         """)
     except Exception:
         risk_today = pd.DataFrame()
