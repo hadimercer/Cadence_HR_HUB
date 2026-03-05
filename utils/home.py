@@ -103,8 +103,12 @@ def render_home():
             SELECT rag_status,
                    COUNT(*) AS cnt,
                    AVG(composite_score)::numeric AS avg_score
-            FROM attrition_risk_scores
-            WHERE calculation_date = (SELECT MAX(calculation_date) FROM attrition_risk_scores)
+            FROM (
+                SELECT DISTINCT ON (employee_id)
+                    employee_id, rag_status, composite_score
+                FROM attrition_risk_scores
+                ORDER BY employee_id, calculation_date DESC
+            ) latest
             GROUP BY rag_status
         """)
     except Exception:
