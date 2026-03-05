@@ -24,13 +24,9 @@ def render_home():
     try:
         wf_curr = query_df("""
             SELECT
-                COUNT(*) FILTER (WHERE status = 'ACTIVE')
-                    AS active_count,
-                COUNT(*) FILTER (WHERE status = 'TERMINATED'
-                    AND termination_date >= date_trunc('month', reporting_period::date)
-                    AND termination_date <  date_trunc('month', reporting_period::date)
-                                 + interval '1 month')
-                    AS termed_this_period
+                COUNT(*) FILTER (WHERE status = 'ACTIVE')  AS active_count,
+                COUNT(*) FILTER (WHERE status = 'LEAVER')  AS leaver_count,
+                SUM(budgeted_headcount) FILTER (WHERE status = 'ACTIVE') AS total_budget
             FROM headcount_snapshots
             WHERE reporting_period = %s
         """, (current_period,)) if current_period else pd.DataFrame()
@@ -180,13 +176,26 @@ def render_home():
     with col_a:
         try:
             active_curr = _val(wf_curr, "active_count", 0)
-            _termed     = _val(wf_curr, "termed_this_period", 0)
-            _active     = _val(wf_curr, "active_count", 0)
-            _atr        = round(float(_termed) / float(_active) * 100, 1) if float(_active) > 0 else 0
+            _leavers    = float(_val(wf_curr, "leaver_count", 0))
+            _active     = float(_val(wf_curr, "active_count", 0))
+            _total_wf   = _active + _leavers
+            _atr        = round(_leavers / _total_wf * 100, 1) if _total_wf > 0 else 0
             atr_str     = str(_atr) + "%"
+            _budget     = float(_val(wf_curr, "total_budget", 0))
+            _pct_bud    = round(_active / _budget * 100, 0) if _budget > 0 else 0
+            _bud_delta  = _pct_bud - 100
+            if _budget == 0:
+                vs_budget_str = "—"
+            elif abs(_bud_delta) <= 2:
+                vs_budget_str = f"{_pct_bud:.0f}%"
+            elif _bud_delta > 2:
+                vs_budget_str = f"{_pct_bud:.0f}% (+{_bud_delta:.0f}%)"
+            else:
+                vs_budget_str = f"{_pct_bud:.0f}% ({_bud_delta:.0f}%)"
         except Exception:
-            active_curr = "—"
-            atr_str     = "—"
+            active_curr   = "—"
+            atr_str       = "—"
+            vs_budget_str = "—"
         st.markdown(
             '<div style="background:#262730;border-radius:0.75rem;padding:1.2rem 1.4rem;'
             'margin-bottom:0.8rem;border-left:4px solid #4DB6AC;">'
@@ -210,7 +219,7 @@ def render_home():
             '</div>'
             '<div style="background:#1A2535;border-radius:0.4rem;padding:0.4rem 0.8rem;">'
             '<div style="color:#8892A4;font-size:0.7rem;">vs Budget</div>'
-            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">—</div>'
+            '<div style="color:#FAFAFA;font-size:1.1rem;font-weight:700;">' + str(vs_budget_str) + '</div>'
             '</div>'
             '</div>'
             '</div>',
