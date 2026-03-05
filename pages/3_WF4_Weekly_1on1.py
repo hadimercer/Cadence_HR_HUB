@@ -85,11 +85,19 @@ with tab_log:
 
     # Load active employees from latest headcount period
     employees_df = query_df(
-        "SELECT employee_id, first_name || ' ' || last_name AS full_name "
-        "FROM headcount_snapshots "
-        "WHERE reporting_period = (SELECT MAX(reporting_period) FROM headcount_snapshots) "
-        "AND status = 'ACTIVE' "
-        "ORDER BY last_name, first_name"
+        "SELECT hs.employee_id, "
+        "hs.first_name || ' ' || hs.last_name AS full_name, "
+        "hs.department, "
+        "COALESCE(mgr.first_name || ' ' || mgr.last_name, 'Unassigned') AS manager_name "
+        "FROM headcount_snapshots hs "
+        "LEFT JOIN headcount_snapshots mgr "
+        "  ON mgr.employee_id = hs.manager_id "
+        "  AND mgr.reporting_period = "
+        "    (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "WHERE hs.reporting_period = "
+        "  (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "AND hs.status = 'ACTIVE' "
+        "ORDER BY hs.last_name, hs.first_name"
     )
 
     if employees_df.empty:
@@ -98,10 +106,31 @@ with tab_log:
             "Upload a headcount CSV via WF1 \u2014 Data Upload first."
         )
     else:
+        # ── Cascading filters ─────────────────────────────────────────────────
+        _fc1, _fc2 = st.columns(2)
+        with _fc1:
+            _all_depts = ["All Departments"] + sorted(
+                employees_df["department"].dropna().unique().tolist()
+            )
+            _sel_dept = st.selectbox("Department", _all_depts, key="log_dept")
+        _mgr_pool = (
+            employees_df if _sel_dept == "All Departments"
+            else employees_df[employees_df["department"] == _sel_dept]
+        )
+        with _fc2:
+            _all_mgrs = ["All Managers"] + sorted(
+                _mgr_pool["manager_name"].dropna().unique().tolist()
+            )
+            _sel_mgr = st.selectbox("Manager", _all_mgrs, key="log_mgr")
+        _filtered_emp = (
+            _mgr_pool if _sel_mgr == "All Managers"
+            else _mgr_pool[_mgr_pool["manager_name"] == _sel_mgr]
+        )
+
         # ── Employee selector ─────────────────────────────────────────────────
-        emp_labels = ["— Select employee —"] + employees_df["full_name"].tolist()
+        emp_labels = ["— Select employee —"] + _filtered_emp["full_name"].tolist()
         emp_id_map = dict(
-            zip(employees_df["full_name"], employees_df["employee_id"])
+            zip(_filtered_emp["full_name"], _filtered_emp["employee_id"])
         )
 
         selected_name = st.selectbox("Employee", options=emp_labels)

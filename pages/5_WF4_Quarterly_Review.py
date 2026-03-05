@@ -92,10 +92,18 @@ def _resolve_manager_id(employee_id: str) -> str:
 
 def _load_employees():
     return query_df(
-        "SELECT employee_id, first_name || ' ' || last_name AS full_name "
-        "FROM headcount_snapshots "
-        "WHERE reporting_period = (SELECT MAX(reporting_period) FROM headcount_snapshots) "
-        "AND status = 'ACTIVE' ORDER BY last_name, first_name"
+        "SELECT hs.employee_id, "
+        "hs.first_name || ' ' || hs.last_name AS full_name, "
+        "hs.department, "
+        "COALESCE(mgr.first_name || ' ' || mgr.last_name, 'Unassigned') AS manager_name "
+        "FROM headcount_snapshots hs "
+        "LEFT JOIN headcount_snapshots mgr "
+        "  ON mgr.employee_id = hs.manager_id "
+        "  AND mgr.reporting_period = "
+        "    (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "WHERE hs.reporting_period = "
+        "  (SELECT MAX(reporting_period) FROM headcount_snapshots) "
+        "AND hs.status = 'ACTIVE' ORDER BY hs.last_name, hs.first_name"
     )
 
 
@@ -190,8 +198,29 @@ with tab_sa:
             "Upload headcount data via WF1 \u2014 Data Upload."
         )
     else:
-        emp_labels = ["— Select employee —"] + emp_df["full_name"].tolist()
-        emp_id_map = dict(zip(emp_df["full_name"], emp_df["employee_id"]))
+        # ── Cascading filters ─────────────────────────────────────────────────
+        _fc1, _fc2 = st.columns(2)
+        with _fc1:
+            _all_depts = ["All Departments"] + sorted(
+                emp_df["department"].dropna().unique().tolist()
+            )
+            _sel_dept = st.selectbox("Department", _all_depts, key="sa_dept")
+        _mgr_pool = (
+            emp_df if _sel_dept == "All Departments"
+            else emp_df[emp_df["department"] == _sel_dept]
+        )
+        with _fc2:
+            _all_mgrs = ["All Managers"] + sorted(
+                _mgr_pool["manager_name"].dropna().unique().tolist()
+            )
+            _sel_mgr = st.selectbox("Manager", _all_mgrs, key="sa_mgr")
+        _filtered_emp = (
+            _mgr_pool if _sel_mgr == "All Managers"
+            else _mgr_pool[_mgr_pool["manager_name"] == _sel_mgr]
+        )
+
+        emp_labels = ["— Select employee —"] + _filtered_emp["full_name"].tolist()
+        emp_id_map = dict(zip(_filtered_emp["full_name"], _filtered_emp["employee_id"]))
 
         selected_sa = st.selectbox("Employee", options=emp_labels, key="sa_emp_select")
 
@@ -313,8 +342,29 @@ with tab_mgr:
     if emp_df_mgr.empty:
         st.info("\u2139\ufe0f No active employees found.")
     else:
-        emp_labels_mgr = ["— Select employee —"] + emp_df_mgr["full_name"].tolist()
-        emp_id_map_mgr = dict(zip(emp_df_mgr["full_name"], emp_df_mgr["employee_id"]))
+        # ── Cascading filters ─────────────────────────────────────────────────
+        _fc1, _fc2 = st.columns(2)
+        with _fc1:
+            _all_depts = ["All Departments"] + sorted(
+                emp_df_mgr["department"].dropna().unique().tolist()
+            )
+            _sel_dept = st.selectbox("Department", _all_depts, key="mr_dept")
+        _mgr_pool = (
+            emp_df_mgr if _sel_dept == "All Departments"
+            else emp_df_mgr[emp_df_mgr["department"] == _sel_dept]
+        )
+        with _fc2:
+            _all_mgrs = ["All Managers"] + sorted(
+                _mgr_pool["manager_name"].dropna().unique().tolist()
+            )
+            _sel_mgr = st.selectbox("Manager", _all_mgrs, key="mr_mgr")
+        _filtered_emp = (
+            _mgr_pool if _sel_mgr == "All Managers"
+            else _mgr_pool[_mgr_pool["manager_name"] == _sel_mgr]
+        )
+
+        emp_labels_mgr = ["— Select employee —"] + _filtered_emp["full_name"].tolist()
+        emp_id_map_mgr = dict(zip(_filtered_emp["full_name"], _filtered_emp["employee_id"]))
 
         selected_mgr = st.selectbox(
             "Employee", options=emp_labels_mgr, key="mgr_emp_select"
