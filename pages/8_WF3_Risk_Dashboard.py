@@ -202,7 +202,7 @@ with TAB1:
             )])
             fig_donut.update_layout(title="Risk Distribution", height=300)
             _dark(fig_donut)
-            st.plotly_chart(fig_donut, use_container_width=True)
+            st.plotly_chart(fig_donut, use_container_width=True, key="chart_donut")
 
         with bc2:
             dept_avg = (
@@ -226,7 +226,7 @@ with TAB1:
                 showlegend=False,
             )
             _dark(fig_dept)
-            st.plotly_chart(fig_dept, use_container_width=True)
+            st.plotly_chart(fig_dept, use_container_width=True, key="chart_dept")
 
         st.divider()
 
@@ -325,7 +325,7 @@ with TAB1:
                         margin=dict(l=10, r=20, t=20, b=30),
                     )
                     _dark(fig_factors)
-                    st.plotly_chart(fig_factors, use_container_width=True)
+                    st.plotly_chart(fig_factors, use_container_width=True, key=f"chart_factors_{emp_id}")
 
                     # WF3-FR-008: Cross-portfolio pay context
                     st.caption(
@@ -413,7 +413,7 @@ with TAB1:
                                 yaxis=dict(showticklabels=False, title=None),
                             )
                             _dark(fig_spark)
-                            st.plotly_chart(fig_spark, use_container_width=True)
+                            st.plotly_chart(fig_spark, use_container_width=True, key=f"chart_spark_{emp_id}")
                             st.caption("14-day score history")
 
 
@@ -659,7 +659,7 @@ with TAB3:
                 height=380,
             )
             _dark(fig_hist)
-            st.plotly_chart(fig_hist, use_container_width=True)
+            st.plotly_chart(fig_hist, use_container_width=True, key="chart_hist")
 
             # Date selector for factor breakdown
             hist["calc_date_str"] = hist["calculation_date"].astype(str)
